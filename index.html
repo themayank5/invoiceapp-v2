@@ -11,100 +11,239 @@
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link href="fonts/fonts.css" rel="stylesheet">
+  <link href="lib/bootstrap.min.css" rel="stylesheet">
   <link href="landing.css" rel="stylesheet">
   <script src="landing.js"></script>
 </head>
 
 <body>
-  <header class="lp-top">
-    <div class="lp-brand">
-      <img src="icons/icon-192.png" alt="" width="40" height="40">
-      <div><strong>InvoiceGen</strong><span data-t="tagline">Offline GST invoice app</span></div>
+  <!-- Top bar -->
+  <nav class="navbar sticky-top bg-white border-bottom lp-nav">
+    <div class="container">
+      <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="index.html?guide=1">
+        <img src="icons/icon-192.png" alt="" width="36" height="36" class="rounded-3">
+        InvoiceGen
+      </a>
+      <div class="d-flex align-items-center gap-2">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Language">
+          <button type="button" class="btn btn-outline-primary" data-lang="en">English</button>
+          <button type="button" class="btn btn-outline-primary" data-lang="hi">हिन्दी</button>
+        </div>
+        <a class="btn btn-primary btn-sm d-none d-sm-inline-block" href="app.html" data-t="navOpen">Open app</a>
+      </div>
     </div>
-    <div class="lp-lang" role="group" aria-label="Language">
-      <button type="button" data-lang="en">English</button>
-      <button type="button" data-lang="hi">हिन्दी</button>
+  </nav>
+
+  <!-- Hero -->
+  <header class="lp-hero">
+    <div class="container py-5">
+      <div class="row align-items-center g-5">
+        <div class="col-lg-6">
+          <span class="badge rounded-pill bg-primary-subtle text-primary-emphasis border border-primary-subtle fs-6 fw-semibold px-3 py-2 mb-3" data-t="heroBadge">Free · Works offline</span>
+          <h1 class="display-5 fw-bold lh-sm mb-3" data-t="heroTitle">GST invoices that work offline</h1>
+          <p class="lead text-secondary mb-4" data-t="heroText">Make GST invoices, quotations and receipts on your own computer. Your customers, items and invoices are saved in a folder you choose, never on a server. It keeps working without internet.</p>
+
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            <button type="button" class="btn btn-primary btn-lg px-4" data-install data-t="btnInstall">Install app</button>
+            <a class="btn btn-outline-primary btn-lg px-4" href="app.html" data-t="btnOpen">Open app in browser</a>
+          </div>
+          <div class="alert alert-info py-2 small mb-3" id="installStatus" role="status" hidden></div>
+
+          <div class="form-check mb-4">
+            <input class="form-check-input" type="checkbox" id="skipGuide">
+            <label class="form-check-label small text-secondary" for="skipGuide" data-t="skip">Don’t show this page again (go straight to the app)</label>
+          </div>
+
+          <ul class="list-unstyled d-flex flex-wrap gap-3 small text-secondary mb-0">
+            <li class="d-flex align-items-center gap-2"><span class="lp-tick">✓</span><span data-t="chip1">No sign-up</span></li>
+            <li class="d-flex align-items-center gap-2"><span class="lp-tick">✓</span><span data-t="chip2">Data stays on your computer</span></li>
+            <li class="d-flex align-items-center gap-2"><span class="lp-tick">✓</span><span data-t="chip3">Works without internet</span></li>
+          </ul>
+        </div>
+
+        <!-- Decorative invoice preview -->
+        <div class="col-lg-6" aria-hidden="true">
+          <div class="lp-mock mx-auto">
+            <div class="lp-mock-stamp">PAID</div>
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div>
+                <div class="lp-mock-title">TAX INVOICE</div>
+                <div class="lp-line w-50 mt-2"></div>
+                <div class="lp-line w-75 mt-1"></div>
+              </div>
+              <div class="text-end small text-secondary">INV/26-27/001<br>23 Nov 2026</div>
+            </div>
+            <div class="lp-mock-row lp-mock-head"><span>Item</span><span>Qty</span><span>Amount</span></div>
+            <div class="lp-mock-row"><span>Wheat Flour (Atta)</span><span>2 Kg</span><span>₹ 90.01</span></div>
+            <div class="lp-mock-row"><span>Basmati Rice 5 kg</span><span>1</span><span>₹ 504.00</span></div>
+            <div class="lp-mock-row"><span>Detergent</span><span>3</span><span>₹ 424.80</span></div>
+            <div class="lp-mock-total"><span>Total</span><strong>₹ 1,018.81</strong></div>
+            <div class="d-flex align-items-center gap-3 mt-3">
+              <div class="lp-mock-qr"></div>
+              <div class="flex-grow-1"><div class="lp-line w-100"></div><div class="lp-line w-75 mt-1"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
 
-  <main class="lp-wrap">
-    <section class="lp-hero">
-      <h1 data-t="heroTitle">GST invoices that work offline</h1>
-      <p data-t="heroText">Make GST invoices, quotations and receipts on your own computer. Your customers, items and invoices are saved in a folder you choose, never on a server. It keeps working without internet.</p>
-      <div class="lp-actions">
-        <button type="button" class="lp-btn lp-btn-primary" id="btnInstall" data-t="btnInstall">Install app</button>
-        <a class="lp-btn lp-btn-secondary" href="app.html" data-t="btnOpen">Open app in browser</a>
+  <main>
+    <!-- Features -->
+    <section class="py-5">
+      <div class="container">
+        <h2 class="h3 fw-bold text-center mb-4" data-t="featTitle">Everything you need to bill your customers</h2>
+        <div class="row g-4">
+          <div class="col-md-6 col-lg-3">
+            <div class="card h-100 lp-card border-0 shadow-sm"><div class="card-body">
+              <span class="lp-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4M10 12h6M10 16h6"/></svg></span>
+              <h3 class="h6 fw-bold mt-3" data-t="f1Title">GST-ready invoices</h3>
+              <p class="small text-secondary mb-0" data-t="f1Text">CGST, SGST and IGST worked out for you, HSN/SAC codes, a UPI QR code and the amount in words.</p>
+            </div></div>
+          </div>
+          <div class="col-md-6 col-lg-3">
+            <div class="card h-100 lp-card border-0 shadow-sm"><div class="card-body">
+              <span class="lp-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><path d="M16 11a3 3 0 100-6M18 15c2 .6 3 2.2 3 5"/></svg></span>
+              <h3 class="h6 fw-bold mt-3" data-t="f2Title">Customers, items and stock</h3>
+              <p class="small text-secondary mb-0" data-t="f2Text">Keep your customers and items, track stock, set wholesale prices and see what sells best.</p>
+            </div></div>
+          </div>
+          <div class="col-md-6 col-lg-3">
+            <div class="card h-100 lp-card border-0 shadow-sm"><div class="card-body">
+              <span class="lp-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg></span>
+              <h3 class="h6 fw-bold mt-3" data-t="f3Title">Print, PDF and receipts</h3>
+              <p class="small text-secondary mb-0" data-t="f3Text">A4, A5, half page, or 58 and 80 mm thermal receipts. Save as PDF or share on WhatsApp.</p>
+            </div></div>
+          </div>
+          <div class="col-md-6 col-lg-3">
+            <div class="card h-100 lp-card border-0 shadow-sm"><div class="card-body">
+              <span class="lp-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h9M8.5 3v2M6 5c1 4 3 7 6 9M12 5c-1 4-3 7-7 9M13 21l4-10 4 10M14.5 18h5"/></svg></span>
+              <h3 class="h6 fw-bold mt-3" data-t="f4Title">English and Hindi</h3>
+              <p class="small text-secondary mb-0" data-t="f4Text">Use the app and print your invoices in English or in Hindi.</p>
+            </div></div>
+          </div>
+        </div>
       </div>
-      <p class="lp-note" data-t="needs">Needs Chrome or Edge on a laptop or desktop computer.</p>
-      <p class="lp-status" id="installStatus" role="status" hidden></p>
     </section>
 
-    <section>
-      <h2 data-t="waysTitle">Two ways to use it</h2>
-      <div class="lp-cards">
-        <article class="lp-card lp-card-accent">
-          <span class="lp-badge" data-t="recommended">Recommended</span>
-          <h3 data-t="installTitle">Install it on your computer</h3>
-          <p data-t="installText">You get a desktop icon and the app opens in its own window. It also starts without internet, and new versions arrive by themselves.</p>
-        </article>
-        <article class="lp-card">
-          <h3 data-t="browserTitle">Or just use it in the browser</h3>
-          <p data-t="browserText">Nothing to install. Press “Open app in browser” and do everything from here. You get the same features.</p>
-        </article>
+    <!-- Two ways -->
+    <section class="py-5 bg-white border-top border-bottom">
+      <div class="container">
+        <h2 class="h3 fw-bold text-center mb-4" data-t="waysTitle">Two ways to use it</h2>
+        <div class="row g-4 justify-content-center">
+          <div class="col-md-6 col-lg-5">
+            <div class="card h-100 border-primary border-2 shadow-sm">
+              <div class="card-body p-4">
+                <span class="badge text-bg-primary mb-2" data-t="recommended">Recommended</span>
+                <h3 class="h5 fw-bold" data-t="installTitle">Install it on your computer</h3>
+                <p class="text-secondary" data-t="installText">You get a desktop icon and the app opens in its own window. It also starts without internet, and new versions arrive by themselves.</p>
+                <button type="button" class="btn btn-primary" data-install data-t="btnInstall">Install app</button>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6 col-lg-5">
+            <div class="card h-100 shadow-sm">
+              <div class="card-body p-4">
+                <span class="badge text-bg-light border mb-2" data-t="noInstall">No installation</span>
+                <h3 class="h5 fw-bold" data-t="browserTitle">Or just use it in the browser</h3>
+                <p class="text-secondary" data-t="browserText">Nothing to install. Press “Open app in browser” and do everything from here. You get the same features.</p>
+                <a class="btn btn-outline-primary" href="app.html" data-t="btnOpen">Open app in browser</a>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section>
-      <h2 data-t="stepsTitle">Get started in 4 steps</h2>
-      <ol class="lp-steps">
-        <li>
-          <span class="lp-num">1</span>
-          <div>
-            <h3 data-t="s1Title">Install the app (optional)</h3>
-            <p data-t="s1Text">Press “Install app” above and confirm when the browser asks. If you do not want to install it, go to the next step and open the app in the browser.</p>
+    <!-- Steps -->
+    <section class="py-5">
+      <div class="container">
+        <h2 class="h3 fw-bold text-center mb-1" data-t="stepsTitle">Get started in 4 steps</h2>
+        <p class="text-center text-secondary mb-4" data-t="stepsSub">It takes about two minutes. You only do this once.</p>
+        <div class="row g-4">
+          <div class="col-md-6 col-lg-3">
+            <div class="card h-100 lp-step border-0 shadow-sm"><div class="card-body p-4">
+              <span class="lp-num">1</span>
+              <h3 class="h6 fw-bold mt-3" data-t="s1Title">Install the app (optional)</h3>
+              <p class="small text-secondary mb-0" data-t="s1Text">Press “Install app” above and confirm when the browser asks. If you do not want to install it, go to the next step and open the app in the browser.</p>
+            </div></div>
           </div>
-        </li>
-        <li>
-          <span class="lp-num">2</span>
-          <div>
-            <h3 data-t="s2Title">Create your data folder</h3>
-            <p data-t="s2Text">On your computer, create a new empty folder anywhere, for example <b>Documents\InvoiceGen-data</b>. All your customers, items and invoices will be saved in this folder.</p>
+          <div class="col-md-6 col-lg-3">
+            <div class="card h-100 lp-step border-0 shadow-sm"><div class="card-body p-4">
+              <span class="lp-num">2</span>
+              <h3 class="h6 fw-bold mt-3" data-t="s2Title">Create your data folder</h3>
+              <p class="small text-secondary mb-0" data-t="s2Text">On your computer, create a new empty folder anywhere, for example <b>Documents\InvoiceGen-data</b>. All your customers, items and invoices will be saved in this folder.</p>
+            </div></div>
           </div>
-        </li>
-        <li>
-          <span class="lp-num">3</span>
-          <div>
-            <h3 data-t="s3Title">Connect the folder to the app</h3>
-            <p data-t="s3Text">Open the app and press <b>Connect Database</b>. Choose your folder and allow access when the browser asks. An empty folder is fine: the app creates its own files in it.</p>
+          <div class="col-md-6 col-lg-3">
+            <div class="card h-100 lp-step border-0 shadow-sm"><div class="card-body p-4">
+              <span class="lp-num">3</span>
+              <h3 class="h6 fw-bold mt-3" data-t="s3Title">Connect the folder to the app</h3>
+              <p class="small text-secondary mb-0" data-t="s3Text">Open the app and press <b>Connect Database</b>. Choose your folder and allow access when the browser asks. An empty folder is fine: the app creates its own files in it.</p>
+            </div></div>
           </div>
-        </li>
-        <li>
-          <span class="lp-num">4</span>
-          <div>
-            <h3 data-t="s4Title">Add your business details</h3>
-            <p data-t="s4Text">Open <b>Business &amp; Invoice Setup</b> and fill in Seller Info, Bank &amp; UPI and Terms. Then add your customers and items and create your first invoice.</p>
+          <div class="col-md-6 col-lg-3">
+            <div class="card h-100 lp-step border-0 shadow-sm"><div class="card-body p-4">
+              <span class="lp-num">4</span>
+              <h3 class="h6 fw-bold mt-3" data-t="s4Title">Add your business details</h3>
+              <p class="small text-secondary mb-0" data-t="s4Text">Open <b>Business &amp; Invoice Setup</b> and fill in Seller Info, Bank &amp; UPI and Terms. Then add your customers and items and create your first invoice.</p>
+            </div></div>
           </div>
-        </li>
-      </ol>
+        </div>
+      </div>
     </section>
 
-    <section>
-      <h2 data-t="goodTitle">Good to know</h2>
-      <ul class="lp-list">
-        <li data-t="g1">Your data stays on your computer. Nothing is uploaded to the internet.</li>
-        <li data-t="g2">After the first visit the app works without internet. A new version arrives by itself when you are online.</li>
-        <li data-t="g3">It works only in Chrome or Edge, because they can read and write a folder on your computer. It does not work on phones.</li>
-        <li data-t="g4">Your folder is the only copy of your data. Back it up regularly. The app also has Backup &amp; Restore.</li>
-        <li data-t="g5">If the browser asks for permission again, press Connect Database and choose the same folder. Your data is safe.</li>
-        <li data-t="g6">The installed app and the browser version can use the same folder. To use it on another computer, install the app there and copy your folder across.</li>
-      </ul>
+    <!-- Good to know -->
+    <section class="py-5 bg-white border-top">
+      <div class="container" style="max-width: 820px;">
+        <h2 class="h3 fw-bold text-center mb-4" data-t="goodTitle">Good to know</h2>
+        <div class="accordion" id="faq">
+          <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#q1" aria-expanded="true" aria-controls="q1" data-t="q1">Where is my data stored?</button></h3>
+            <div id="q1" class="accordion-collapse collapse show" data-bs-parent="#faq"><div class="accordion-body text-secondary" data-t="g1">Your data stays on your computer. Nothing is uploaded to the internet.</div></div>
+          </div>
+          <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#q2" aria-expanded="false" aria-controls="q2" data-t="q2">Does it work without internet?</button></h3>
+            <div id="q2" class="accordion-collapse collapse" data-bs-parent="#faq"><div class="accordion-body text-secondary" data-t="g2">After the first visit the app works without internet. A new version arrives by itself when you are online.</div></div>
+          </div>
+          <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#q3" aria-expanded="false" aria-controls="q3" data-t="q3">Which browsers and devices work?</button></h3>
+            <div id="q3" class="accordion-collapse collapse" data-bs-parent="#faq"><div class="accordion-body text-secondary" data-t="g3">It works only in Chrome or Edge, because they can read and write a folder on your computer. It does not work on phones.</div></div>
+          </div>
+          <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#q4" aria-expanded="false" aria-controls="q4" data-t="q4">How do I back up my data?</button></h3>
+            <div id="q4" class="accordion-collapse collapse" data-bs-parent="#faq"><div class="accordion-body text-secondary" data-t="g4">Your folder is the only copy of your data. Back it up regularly. The app also has Backup &amp; Restore.</div></div>
+          </div>
+          <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#q5" aria-expanded="false" aria-controls="q5" data-t="q5">The browser asks for permission again</button></h3>
+            <div id="q5" class="accordion-collapse collapse" data-bs-parent="#faq"><div class="accordion-body text-secondary" data-t="g5">If the browser asks for permission again, press Connect Database and choose the same folder. Your data is safe.</div></div>
+          </div>
+          <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#q6" aria-expanded="false" aria-controls="q6" data-t="q6">Can I use it on another computer?</button></h3>
+            <div id="q6" class="accordion-collapse collapse" data-bs-parent="#faq"><div class="accordion-body text-secondary" data-t="g6">The installed app and the browser version can use the same folder. To use it on another computer, install the app there and copy your folder across.</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Closing call to action -->
+    <section class="lp-cta text-white text-center py-5">
+      <div class="container py-3">
+        <h2 class="h2 fw-bold mb-2" data-t="ctaTitle">Ready to start?</h2>
+        <p class="mb-4 opacity-75" data-t="ctaText">Install the app or open it in your browser. It takes about two minutes to set up.</p>
+        <div class="d-flex flex-wrap justify-content-center gap-2">
+          <button type="button" class="btn btn-light btn-lg px-4 fw-semibold" data-install data-t="btnInstall">Install app</button>
+          <a class="btn btn-outline-light btn-lg px-4" href="app.html" data-t="btnOpen">Open app in browser</a>
+        </div>
+      </div>
     </section>
   </main>
 
-  <footer class="lp-foot">
-    <label class="lp-skip"><input type="checkbox" id="skipGuide"> <span data-t="skip">Don’t show this page again (go straight to the app)</span></label>
-    <a class="lp-btn lp-btn-primary" href="app.html" data-t="btnOpen">Open app in browser</a>
+  <footer class="py-4 text-center small text-secondary">
+    <span data-t="foot">InvoiceGen · Your data never leaves your computer.</span>
   </footer>
+
+  <script src="lib/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>

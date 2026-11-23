@@ -17,6 +17,31 @@
 
   var TEXT = {
     en: {
+      navOpen: 'Open app',
+      heroBadge: 'Free · Works offline',
+      chip1: 'No sign-up',
+      chip2: 'Data stays on your computer',
+      chip3: 'Works without internet',
+      featTitle: 'Everything you need to bill your customers',
+      f1Title: 'GST-ready invoices',
+      f1Text: 'CGST, SGST and IGST worked out for you, HSN/SAC codes, a UPI QR code and the amount in words.',
+      f2Title: 'Customers, items and stock',
+      f2Text: 'Keep your customers and items, track stock, set wholesale prices and see what sells best.',
+      f3Title: 'Print, PDF and receipts',
+      f3Text: 'A4, A5, half page, or 58 and 80 mm thermal receipts. Save as PDF or share on WhatsApp.',
+      f4Title: 'English and Hindi',
+      f4Text: 'Use the app and print your invoices in English or in Hindi.',
+      noInstall: 'No installation',
+      stepsSub: 'It takes about two minutes. You only do this once.',
+      q1: 'Where is my data stored?',
+      q2: 'Does it work without internet?',
+      q3: 'Which browsers and devices work?',
+      q4: 'How do I back up my data?',
+      q5: 'The browser asks for permission again',
+      q6: 'Can I use it on another computer?',
+      ctaTitle: 'Ready to start?',
+      ctaText: 'Install the app or open it in your browser. It takes about two minutes to set up.',
+      foot: 'InvoiceGen · Your data never leaves your computer.',
       tagline: 'Offline GST invoice app',
       heroTitle: 'GST invoices that work offline',
       heroText: 'Make GST invoices, quotations and receipts on your own computer. Your customers, items and invoices are saved in a folder you choose, never on a server. It keeps working without internet.',
@@ -50,6 +75,31 @@
       installHint: 'The install option is not available right now. The app may already be installed, or this browser does not offer it. Look for the install icon in the address bar of Chrome or Edge, or press “Open app in browser” and use it from here.'
     },
     hi: {
+      navOpen: 'ऐप खोलें',
+      heroBadge: 'मुफ़्त · बिना इंटरनेट चलता है',
+      chip1: 'साइन-अप की ज़रूरत नहीं',
+      chip2: 'डेटा आपके कंप्यूटर पर',
+      chip3: 'इंटरनेट के बिना भी चलता है',
+      featTitle: 'ग्राहकों को बिल देने के लिए सब कुछ',
+      f1Title: 'GST के लिए तैयार इनवॉइस',
+      f1Text: 'CGST, SGST और IGST अपने-आप, HSN/SAC कोड, UPI QR कोड और राशि शब्दों में।',
+      f2Title: 'ग्राहक, आइटम और स्टॉक',
+      f2Text: 'ग्राहक और आइटम सँभालिए, स्टॉक देखिए, थोक भाव रखिए और जानिए क्या सबसे ज़्यादा बिकता है।',
+      f3Title: 'प्रिंट, PDF और रसीद',
+      f3Text: 'A4, A5, आधा पेज या 58 और 80 mm थर्मल रसीद। PDF सेव कीजिए या WhatsApp पर भेजिए।',
+      f4Title: 'अंग्रेज़ी और हिन्दी',
+      f4Text: 'ऐप चलाइए और अपने इनवॉइस अंग्रेज़ी या हिन्दी में छापिए।',
+      noInstall: 'इंस्टॉल की ज़रूरत नहीं',
+      stepsSub: 'लगभग दो मिनट लगते हैं। यह सिर्फ़ एक बार करना होता है।',
+      q1: 'मेरा डेटा कहाँ सेव होता है?',
+      q2: 'क्या यह इंटरनेट के बिना चलता है?',
+      q3: 'कौन-से ब्राउज़र और डिवाइस चलते हैं?',
+      q4: 'अपने डेटा का बैकअप कैसे लूँ?',
+      q5: 'ब्राउज़र दोबारा अनुमति माँगे तो क्या करें?',
+      q6: 'क्या मैं इसे दूसरे कंप्यूटर पर चला सकता हूँ?',
+      ctaTitle: 'शुरू करने के लिए तैयार?',
+      ctaText: 'ऐप इंस्टॉल कीजिए या ब्राउज़र में खोलिए। सेटअप में लगभग दो मिनट लगते हैं।',
+      foot: 'InvoiceGen · आपका डेटा आपके कंप्यूटर से बाहर नहीं जाता।',
       tagline: 'बिना इंटरनेट चलने वाला GST इनवॉइस ऐप',
       heroTitle: 'बिना इंटरनेट चलने वाले GST इनवॉइस',
       heroText: 'अपने कंप्यूटर पर GST इनवॉइस, कोटेशन और रसीदें बनाइए। आपके ग्राहक, आइटम और इनवॉइस आपके चुने हुए फ़ोल्डर में सेव होते हैं, किसी सर्वर पर नहीं। इंटरनेट के बिना भी चलता रहता है।',
@@ -104,7 +154,7 @@
       if (value !== undefined) element.innerHTML = value;
     });
     document.querySelectorAll('[data-lang]').forEach(function (button) {
-      button.classList.toggle('is-active', button.dataset.lang === lang);
+      button.classList.toggle('active', button.dataset.lang === lang);
       button.setAttribute('aria-pressed', String(button.dataset.lang === lang));
     });
     var status = document.getElementById('installStatus');
@@ -136,13 +186,15 @@
     skip.checked = read(SKIP_KEY) === '1';
     skip.addEventListener('change', function () { write(SKIP_KEY, skip.checked ? '1' : null); });
 
-    document.getElementById('btnInstall').addEventListener('click', function () {
-      if (!deferredInstall) { showStatus('installHint'); return; }
-      deferredInstall.prompt();
-      deferredInstall.userChoice.then(function (choice) {
-        deferredInstall = null;
-        if (choice && choice.outcome === 'accepted') showStatus('installed');
-      }).catch(function () { /* closed without choosing */ });
+    document.querySelectorAll('[data-install]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        if (!deferredInstall) { showStatus('installHint'); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+        deferredInstall.prompt();
+        deferredInstall.userChoice.then(function (choice) {
+          deferredInstall = null;
+          if (choice && choice.outcome === 'accepted') { showStatus('installed'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+        }).catch(function () { /* closed without choosing */ });
+      });
     });
   });
 })();
