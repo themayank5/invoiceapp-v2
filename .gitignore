@@ -1,0 +1,16 @@
+# Your business data never goes to GitHub: it lives in a CSV folder on your own computer.
+csv/
+*.csv
+!csv-template/*.csv
+app-settings.json
+backup*.zip
+before-restore-*.zip
+
+# Editor / tool files
+.claude/
+.vscode/
+.idea/
+node_modules/
+*.log
+Thumbs.db
+.DS_Store
