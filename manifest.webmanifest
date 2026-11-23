@@ -3,7 +3,7 @@
   "short_name": "InvoiceGen",
   "description": "Offline GST invoice generator. Your data stays in CSV files on your computer.",
   "start_url": "./app.html",
-  "scope": "./",
+  "scope": "./app.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
