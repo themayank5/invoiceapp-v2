@@ -216,7 +216,20 @@
   window.addEventListener('appinstalled', function () {
     deferredInstall = null;
     showStatus('installed');
+    // Chrome can move this very page into the new app window. Then it must go to the app, not stay on the guide.
+    setTimeout(goToAppIfInstalledWindow, 600);
+    setTimeout(goToAppIfInstalledWindow, 2000);
   });
+
+  // The guide opened in a normal tab and was then turned into the installed app window: switch to the app.
+  function goToAppIfInstalledWindow() {
+    var isApp = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+    if (isApp && !params.has('guide')) location.replace('app.html');
+  }
+  if (window.matchMedia) {
+    var displayQuery = matchMedia('(display-mode: standalone)');
+    if (displayQuery.addEventListener) displayQuery.addEventListener('change', goToAppIfInstalledWindow);
+  }
 
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     window.addEventListener('load', function () {
