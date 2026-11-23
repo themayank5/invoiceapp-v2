@@ -7946,3 +7946,26 @@ body.dashboard-mode .first-run-notice { display: none !important; }
 @media (max-width: 760px) {
   .topbar-lang-setting { flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
 }
+
+/* ---------- Add an item form: tidy 12-column layout, equal control heights ---------- */
+#itemAddForm .customer-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+#itemAddForm .customer-field .form-control,
+#itemAddForm .customer-field .form-select { margin: 0; height: 38px; font-size: 13px; }
+#itemAddForm .customer-add-action .btn { height: 38px; width: 100%; font-weight: 600; }
+#itemAddForm .customer-add-action { align-items: flex-end; }
+@media (min-width: 1201px) {
+  #itemAddForm .customer-add-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; align-items: end; }
+  /* Row 1: name | HSN | rate | wholesale | purchase price.   Row 2: stock | unit | GST | button */
+  #itemAddForm .customer-add-grid > :nth-child(1) { grid-area: 1 / 1 / 2 / span 4; }
+  #itemAddForm .customer-add-grid > :nth-child(2) { grid-area: 1 / 5 / 2 / span 2; }
+  #itemAddForm .customer-add-grid > :nth-child(3) { grid-area: 1 / 7 / 2 / span 2; }
+  #itemAddForm .customer-add-grid > :nth-child(4) { grid-area: 1 / 9 / 2 / span 2; }
+  #itemAddForm .customer-add-grid > :nth-child(5) { grid-area: 1 / 11 / 2 / span 2; }
+  #itemAddForm .customer-add-grid > :nth-child(6) { grid-area: 2 / 1 / 3 / span 3; }
+  #itemAddForm .customer-add-grid > :nth-child(7) { grid-area: 2 / 4 / 3 / span 3; }
+  #itemAddForm .customer-add-grid > :nth-child(8) { grid-area: 2 / 7 / 3 / span 3; }
+  #itemAddForm .customer-add-grid > .customer-add-action { grid-area: 2 / 10 / 3 / span 3; }
+}
+@media (max-width: 1200px) {
+  #itemAddForm .customer-add-grid > .customer-add-action { order: 99; grid-column: 1 / -1; }
+}

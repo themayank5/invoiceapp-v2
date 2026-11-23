@@ -256,12 +256,13 @@
           </svg>
           New Invoice
         </button>
-        <button id="btnPrintPreview" type="button" class="topbar-btn topbar-btn-secondary">Preview</button>
         <div class="dropdown">
           <button type="button" class="topbar-btn topbar-btn-primary dropdown-toggle" id="btnInvoiceActions" data-bs-toggle="dropdown" aria-expanded="false">
             Invoice Actions
           </button>
           <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="btnInvoiceActions">
+            <li><button type="button" class="dropdown-item" id="btnPrintPreview">Preview</button></li>
+            <li><hr class="dropdown-divider"></li>
             <li><button type="button" class="dropdown-item" data-invoice-action="save-print">Save &amp; Print</button></li>
             <li><button type="button" class="dropdown-item" data-invoice-action="save-draft">Save as Draft</button></li>
           </ul>

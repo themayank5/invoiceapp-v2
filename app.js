@@ -2630,9 +2630,9 @@ function save() {
       <form id="itemAddForm" class="customer-add-form item-add-form">
         <div class="customer-directory-heading"><strong>Add an item</strong></div>
         <div class="customer-add-grid">
-          <label class="customer-field">Item name<input class="form-control" name="name" required maxlength="200" placeholder="Enter product or service name"></label>
-          <label class="customer-field">HSN/SAC<input class="form-control" name="hsn" required maxlength="50" placeholder="Enter HSN/SAC code"></label>
-          <label class="customer-field">Rate<input class="form-control" name="rate" type="number" min="0" step="any" required placeholder="Enter unit rate"></label>
+          <label class="customer-field">Item name<input class="form-control" name="name" required maxlength="200" placeholder="Product or service name"></label>
+          <label class="customer-field">HSN/SAC<input class="form-control" name="hsn" required maxlength="50" placeholder="HSN/SAC code"></label>
+          <label class="customer-field">Rate<input class="form-control" name="rate" type="number" min="0" step="any" required placeholder="Unit rate"></label>
           <label class="customer-field">Wholesale rate<input class="form-control" name="wholesaleRate" type="number" min="0" step="any" placeholder="Optional" title="Used for customers on the Wholesale price list"></label>
           <label class="customer-field">Purchase price<input class="form-control" name="cost" type="number" min="0" step="any" placeholder="Optional cost"></label>
           <label class="customer-field">Opening stock<input class="form-control" name="stock" type="number" step="any" placeholder="Optional" title="Leave blank to not track stock for this item"></label>
