@@ -8,9 +8,10 @@
   function write(key, value) { try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch (e) { /* storage blocked */ }
   }
 
-  // The installed app, or someone who ticked "don't show again", goes straight to the app. "?guide=1" always shows this page.
+  // The address always shows this guide. Only the installed app window goes straight to the app ("?guide=1" still shows the guide there).
+  write(SKIP_KEY, null);   // forget the old "don't show again" choice, so nobody stays stuck on the app
   var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
-  if ((standalone || read(SKIP_KEY) === '1') && !params.has('guide')) {
+  if (standalone && !params.has('guide')) {
     location.replace('app.html');
     return;
   }
@@ -73,7 +74,6 @@
       g4: 'Your folder is the only copy of your data. Back it up regularly. The app also has Backup &amp; Restore.',
       g5: 'If the browser asks for permission again, press Connect Database and choose the same folder. Your data is safe.',
       g6: 'The installed app and the browser version can use the same folder. To use it on another computer, install the app there and copy your folder across.',
-      skip: 'Don’t show this page again (go straight to the app)',
       installed: 'Installed! Open InvoiceGen from your desktop or the Start menu. Then connect your data folder (step 3).',
       installHint: 'The install option is not available right now. The app may already be installed, or this browser does not offer it. Look for the install icon in the address bar of Chrome or Edge, or press “Open app in browser” and use it from here.'
     },
@@ -134,7 +134,6 @@
       g4: 'आपका फ़ोल्डर ही आपके डेटा की एकमात्र कॉपी है। उसका नियमित बैकअप रखिए। ऐप में Backup &amp; Restore भी है।',
       g5: 'अगर ब्राउज़र दोबारा अनुमति माँगे, तो Connect Database दबाकर वही फ़ोल्डर फिर चुन लीजिए। आपका डेटा सुरक्षित रहता है।',
       g6: 'इंस्टॉल किया हुआ ऐप और ब्राउज़र वाला ऐप एक ही फ़ोल्डर इस्तेमाल कर सकते हैं। दूसरे कंप्यूटर पर चलाने के लिए वहाँ ऐप इंस्टॉल कीजिए और अपना फ़ोल्डर कॉपी कर लीजिए।',
-      skip: 'यह पेज दोबारा न दिखाएँ (सीधे ऐप खोलें)',
       installed: 'इंस्टॉल हो गया! InvoiceGen को डेस्कटॉप या Start मेनू से खोलिए। फिर अपना डेटा फ़ोल्डर जोड़िए (कदम 3)।',
       installHint: 'इंस्टॉल का विकल्प अभी उपलब्ध नहीं है। हो सकता है ऐप पहले से इंस्टॉल हो, या यह ब्राउज़र इसे न देता हो। Chrome या Edge के एड्रेस बार में इंस्टॉल आइकन देखिए, या “ब्राउज़र में ऐप खोलें” दबाकर यहीं से इस्तेमाल कीजिए।'
     }
@@ -188,10 +187,6 @@
     document.querySelectorAll('[data-lang]').forEach(function (button) {
       button.addEventListener('click', function () { applyLanguage(button.dataset.lang); });
     });
-
-    var skip = document.getElementById('skipGuide');
-    skip.checked = read(SKIP_KEY) === '1';
-    skip.addEventListener('change', function () { write(SKIP_KEY, skip.checked ? '1' : null); });
 
     document.querySelectorAll('[data-install]').forEach(function (button) {
       button.addEventListener('click', function () {
