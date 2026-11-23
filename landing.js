@@ -17,7 +17,10 @@
 
   var TEXT = {
     en: {
-      navOpen: 'Open app',
+      st1: 'Bytes of your data sent to a server',
+      st2: 'Invoice layouts',
+      st3: 'Paper sizes, A4 to 58 mm receipt',
+      st4: 'Languages: English and Hindi',
       heroBadge: 'Free · Works offline',
       chip1: 'No sign-up',
       chip2: 'Data stays on your computer',
@@ -75,7 +78,10 @@
       installHint: 'The install option is not available right now. The app may already be installed, or this browser does not offer it. Look for the install icon in the address bar of Chrome or Edge, or press “Open app in browser” and use it from here.'
     },
     hi: {
-      navOpen: 'ऐप खोलें',
+      st1: 'आपके डेटा के बाइट जो किसी सर्वर पर जाते हैं',
+      st2: 'इनवॉइस लेआउट',
+      st3: 'पेपर साइज़, A4 से 58 mm रसीद तक',
+      st4: 'भाषाएँ: अंग्रेज़ी और हिन्दी',
       heroBadge: 'मुफ़्त · बिना इंटरनेट चलता है',
       chip1: 'साइन-अप की ज़रूरत नहीं',
       chip2: 'डेटा आपके कंप्यूटर पर',
@@ -154,7 +160,8 @@
       if (value !== undefined) element.innerHTML = value;
     });
     document.querySelectorAll('[data-lang]').forEach(function (button) {
-      button.classList.toggle('active', button.dataset.lang === lang);
+      button.classList.toggle('btn-primary', button.dataset.lang === lang);
+      button.classList.toggle('btn-ghost', button.dataset.lang !== lang);
       button.setAttribute('aria-pressed', String(button.dataset.lang === lang));
     });
     var status = document.getElementById('installStatus');

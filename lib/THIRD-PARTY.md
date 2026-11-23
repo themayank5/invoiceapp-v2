@@ -12,3 +12,8 @@ These files are copied into the app so it works fully offline. Each keeps its ow
 | `fonts/noto-sans-devanagari-*.woff2` | Noto Sans Devanagari (via @fontsource/noto-sans-devanagari 5.3.0) | SIL Open Font License 1.1, `fonts/OFL-NotoSansDevanagari.txt` |
 
 `fonts/fonts.css` declares the fonts for the app.
+
+## Guide page styling (`lib/landing.tailwind.css`)
+
+Compiled from [Tailwind CSS](https://tailwindcss.com) 4.3 and [daisyUI](https://daisyui.com) 5.8 (both MIT licence).
+Only the classes used by `index.html` are included. To rebuild after changing `index.html`, see `tools/landing-css/README.md`.
