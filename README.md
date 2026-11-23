@@ -35,11 +35,12 @@ with internet.
 ## Run it locally instead (no GitHub)
 
 From this folder run `python -m http.server 8080` and open `http://localhost:8080`. A service worker (offline start)
-and installation only work from `https://` or `http://localhost`, not from a double-clicked `index.html`.
+and installation only work from `https://` or `http://localhost`, not from a double-clicked `app.html`.
 
 ## What is in the project
 
-- `index.html`, `app.js`, `style.css`, `i18n.js`, `folder-data.js` – the app
+- `index.html`, `landing.css`, `landing.js` – the guide page (English and Hindi) that opens first
+- `app.html`, `app.js`, `style.css`, `i18n.js`, `folder-data.js` – the app itself
 - `lib/`, `fonts/` – libraries and fonts, bundled so nothing loads from the internet
 - `manifest.webmanifest`, `sw.js`, `icons/` – installable app and offline start
 - `FEATURES.md` – what the app does

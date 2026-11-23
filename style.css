@@ -7936,3 +7936,13 @@ body.dashboard-mode .first-run-notice { display: none !important; }
 
 /* No UPI ID yet: don't draw an empty QR frame */
 .sheet .qr.qr-code:empty { display: none; }
+
+/* Guide link and install button sit beside the language selector */
+.topbar-lang-setting .topbar-guide-link,
+.topbar-lang-setting .topbar-install-btn { white-space: nowrap; margin-left: 10px; }
+.topbar-install-btn[hidden] { display: none; }
+.topbar-lang-setting { width: auto !important; flex: 0 0 auto !important; flex-wrap: nowrap; }
+.topbar-lang-setting .setting-select { min-width: 130px; flex: 0 0 auto; }
+@media (max-width: 760px) {
+  .topbar-lang-setting { flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
+}

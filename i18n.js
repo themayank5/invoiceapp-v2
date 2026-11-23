@@ -441,6 +441,8 @@ const HI = {
   /* ----- dialogs ----- */
   'Choose the app’s CSV folder': 'ऐप का CSV फ़ोल्डर चुनें',
   'Choose data folder': 'डेटा फ़ोल्डर चुनें',
+  'How to use': 'उपयोग कैसे करें',
+  'Install app': 'ऐप इंस्टॉल करें',
   'Choose CSV file': 'CSV फ़ाइल चुनें',
   'Confirm deletion': 'हटाने की पुष्टि करें',
   'Override saved invoice?': 'सहेजे गए चालान को बदलें?',

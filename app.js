@@ -1001,7 +1001,7 @@ async function pickConnectedCsvFile(kind) {
       handle = await directoryHandle.getFileHandle(filename);
     } catch (error) {
       if (error.name === 'NotFoundError') {
-        throw new Error(`The selected folder does not contain ${filename}. Choose the csv folder beside index.html.`);
+        throw new Error(`The selected folder does not contain ${filename}. Choose your data folder.`);
       }
       throw error;
     }
@@ -1011,7 +1011,7 @@ async function pickConnectedCsvFile(kind) {
       types: [{ description: 'CSV file', accept: { 'text/csv': ['.csv'] } }]
     });
     if (handle.name.toLowerCase() !== filename) {
-      throw new Error(`The selected file is not ${filename}. Choose it from the csv folder beside index.html.`);
+      throw new Error(`The selected file is not ${filename}. Choose it from your data folder.`);
     }
   } else {
     throw new Error('CSV file access is not supported in this browser. Open this app in the latest Chrome or Edge.');
