@@ -35,7 +35,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;   // only the app's own files
   event.respondWith(
-    fetch(request)
+    fetch(request, { cache: 'no-cache' })   // always check with the server, so a new version shows up right after you publish it
       .then(response => {
         if (response && response.ok) {
           const copy = response.clone();
