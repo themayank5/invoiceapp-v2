@@ -214,6 +214,11 @@
       <strong>Your work could not be kept in this browser.</strong> Browser storage is full (a very large logo or signature is the usual cause), so what you see on screen will be lost if you refresh. Save the invoice to the database now, or use a smaller logo or signature.
     </div>
 
+    <div class="alert alert-info no-print first-run-notice" id="firstRunNotice" role="status" hidden>
+      <div><strong>Welcome!</strong> Start by adding your business details. Your name, address and GSTIN then appear on every invoice.</div>
+      <button type="button" class="btn btn-sm btn-primary" id="btnFirstRunSetup">Add business details</button>
+    </div>
+
     <div class="invoice-body-actions no-print" id="invoiceBodyActions">
       <div class="invoice-body-settings">
         <div class="setting-row topbar-setting topbar-price-setting">
@@ -625,7 +630,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          Your current invoice details will be replaced with the demo example.
+          Your current invoice details will be cleared and you will start with a blank invoice.
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>

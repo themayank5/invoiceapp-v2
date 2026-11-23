@@ -7898,3 +7898,41 @@ body.printing.paper-thermal80 .main-wrapper,
 body.printing.paper-thermal58 .main-wrapper { width: 100%; max-width: 100%; }
 .template-paper-row { display: block; }
 .template-paper-row .template-opt-note { margin-top: 6px; }
+
+/* ---------- Welcome notice for a brand-new user ---------- */
+.first-run-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 12px; }
+.first-run-notice[hidden] { display: none; }
+
+/* ---------- Seller / bank / terms profile forms: tidy, aligned layout ---------- */
+.profile-add-form .customer-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.profile-add-form .customer-field .form-control,
+.profile-add-form .customer-field .form-select { margin: 0; height: 38px; font-size: 13px; }
+.profile-add-form .customer-field textarea.form-control { height: auto; min-height: 76px; }
+.profile-add-form .customer-field input[type="file"].form-control { padding: 6px 10px; line-height: 1.6; }
+.profile-add-form .customer-field:has(.form-check-input) { flex-direction: row-reverse; justify-content: flex-end; align-items: center; gap: 8px; align-self: center; }
+.profile-add-form .customer-add-action .btn { height: 38px; width: 100%; font-weight: 600; }
+
+@media (min-width: 1201px) {
+  .profile-add-form .profile-add-grid:not(.terms-profile-grid) { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; align-items: end; }
+  /* Seller row 1: name | GSTIN | mobile | email.   Row 2: address | state | logo | button */
+  .profile-add-form[data-profile-form="seller"] .profile-add-grid > :nth-child(1) { grid-area: 1 / 1 / 2 / span 3; }
+  .profile-add-form[data-profile-form="seller"] .profile-add-grid > :nth-child(2) { grid-area: 1 / 4 / 2 / span 3; }
+  .profile-add-form[data-profile-form="seller"] .profile-add-grid > :nth-child(4) { grid-area: 1 / 7 / 2 / span 2; }
+  .profile-add-form[data-profile-form="seller"] .profile-add-grid > :nth-child(5) { grid-area: 1 / 9 / 2 / span 4; }
+  .profile-add-form[data-profile-form="seller"] .profile-add-grid > :nth-child(3) { grid-area: 2 / 1 / 3 / span 4; }
+  .profile-add-form[data-profile-form="seller"] .profile-add-grid > :nth-child(6) { grid-area: 2 / 5 / 3 / span 3; }
+  .profile-add-form[data-profile-form="seller"] .profile-add-grid > :nth-child(7) { grid-area: 2 / 8 / 3 / span 3; }
+  .profile-add-form[data-profile-form="seller"] .profile-add-grid > .customer-add-action { grid-area: 2 / 11 / 3 / span 2; }
+  /* Bank row 1: bank | account | IFSC | branch.   Row 2: UPI | QR option | button */
+  .profile-add-form[data-profile-form="bank"] .profile-add-grid > :nth-child(1) { grid-area: 1 / 1 / 2 / span 3; }
+  .profile-add-form[data-profile-form="bank"] .profile-add-grid > :nth-child(2) { grid-area: 1 / 4 / 2 / span 3; }
+  .profile-add-form[data-profile-form="bank"] .profile-add-grid > :nth-child(3) { grid-area: 1 / 7 / 2 / span 3; }
+  .profile-add-form[data-profile-form="bank"] .profile-add-grid > :nth-child(4) { grid-area: 1 / 10 / 2 / span 3; }
+  .profile-add-form[data-profile-form="bank"] .profile-add-grid > :nth-child(5) { grid-area: 2 / 1 / 3 / span 4; }
+  .profile-add-form[data-profile-form="bank"] .profile-add-grid > :nth-child(6) { grid-area: 2 / 5 / 3 / span 4; }
+  .profile-add-form[data-profile-form="bank"] .profile-add-grid > .customer-add-action { grid-area: 2 / 10 / 3 / span 3; }
+}
+body.dashboard-mode .first-run-notice { display: none !important; }
+
+/* No UPI ID yet: don't draw an empty QR frame */
+.sheet .qr.qr-code:empty { display: none; }

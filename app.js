@@ -87,17 +87,11 @@ function shouldCloseQuantityMenu(row) {
   return Number(S.items[0]?.qty) > 0 && Boolean(S.items[0]?.unitExplicit);
 }
 
-/* ---------- demo customer directory ---------- */
-const DEMO_CUSTOMERS = [
-  { name: 'Rahul Sharma', gstin: '07AAAPZ5522Q1Z2', phone: '9876543210', email: 'rahul.sharma@example.com', billing: '12, Connaught Place  New Delhi, DELHI, 110001', shipSame: true, shipping: '' },
- 
-];
-
-/* ---------- demo item catalog ---------- */
-const DEMO_ITEMS = [
-  { name: 'Tata Nexon XZ+', hsn: '87032210', rate: 100 },
-  
-];
+/* ---------- no built-in customers or items ----------
+   A new user starts with nothing: customers and items come only from the user's own data folder.
+   (The arrays stay so the index arithmetic elsewhere keeps working.) */
+const DEMO_CUSTOMERS = [];
+const DEMO_ITEMS = [];
 
 /* ---------- invoice templates ----------
    A template is a LAYOUT for the top (title, seller, invoice details, customer) and bottom (bank, QR, signature, terms)
@@ -223,6 +217,7 @@ const EMPTY_STATE = {
   discount: { type: 'percent', value: '' },
   style: { ...DEFAULT_STYLE }
 };
+// Sample invoice shown ONLY in the template previews. A new user's invoice starts blank (see blankInvoice).
 const DEMO_DATA = {
   ...structuredClone(EMPTY_STATE),
   seller: {
@@ -271,6 +266,12 @@ const DEMO_DATA = {
     ]
   }
 };
+
+function blankInvoice() {
+  const blank = structuredClone(EMPTY_STATE);
+  blank.meta.date = todayISO();
+  return blank;
+}
 
 let hasSavedInvoice = false;
 let S = load();
@@ -769,7 +770,7 @@ function invoiceLabel(record) {
   return `${quote ? 'Quotation' : 'Invoice'} ${record.invoiceNo}`;
 }
 
-// A brand-new (demo) invoice starts with the first number of the current financial year.
+// A brand-new invoice starts with the first number of the current financial year.
 if (!hasSavedInvoice && numbering.auto) S.meta.no = nextInvoiceNumber(S.meta.date);
 // If the invoice date moves into another financial year, an auto-generated number moves with it.
 function syncInvoiceNumberWithDate() {
@@ -1157,9 +1158,9 @@ function load() {
       }
     }
   } catch (e) {
-    console.warn('Could not load saved invoice; showing demo data instead.', e);
+    console.warn('Could not load saved invoice; starting a blank invoice instead.', e);
   }
-  return structuredClone(DEMO_DATA);
+  return blankInvoice();
 }
 function normalizeTerms(data) {
   if (Array.isArray(data.terms?.list)) return data;
@@ -5034,6 +5035,8 @@ function renderInto(target, n = 1) {
   target.innerHTML = LABELS.slice(0, isQuotation() ? 1 : n).map(sheetHTML).join('');   // a quotation is a single copy
   $('#pm').value = S.priceMode; $('#cp').value = S.copies;
   $('#paperSel').value = invoicePaper();
+  const welcome = $('#firstRunNotice');
+  if (welcome) welcome.hidden = Boolean(archivePreviewInvoice) || Boolean(String(S.seller.name || '').trim());
   syncQuotationToggle();
   refreshCsvConnectionStatus();
 }
@@ -6430,7 +6433,7 @@ document.addEventListener('click', async e => {
     return;
   }
 
-  // Item dropdown: select a demo item
+  // Item dropdown: select an item
   if (t.closest('[data-itemidx]')) {
     const el = t.closest('[data-itemidx]');
     const j = +el.dataset.itemidx;
@@ -7571,8 +7574,8 @@ $('#disconnectDatabaseModal').addEventListener('hidden.bs.modal', () => {
   disconnectDatabase();
 });
 
-function resetInvoiceToDemo() {
-  S = structuredClone(DEMO_DATA);
+function resetInvoiceToBlank() {
+  S = blankInvoice();
   S.lang = uiLang;
   save();
   render();
@@ -7586,7 +7589,7 @@ $('#btnConfirmReset').onclick = () => {
 $('#resetConfirmModal').addEventListener('hidden.bs.modal', () => {
   if (!$('#resetConfirmModal').dataset.confirmed) return;
   delete $('#resetConfirmModal').dataset.confirmed;
-  resetInvoiceToDemo();
+  resetInvoiceToBlank();
 });
 
 
@@ -7901,4 +7904,8 @@ document.addEventListener('click', async e => {
   await installPromptEvent.userChoice.catch(() => null);
   installPromptEvent = null;
   $('#btnInstallApp').hidden = true;
+});
+
+document.addEventListener('click', e => {
+  if (e.target.closest?.('#btnFirstRunSetup')) $('#nav-seller')?.click();
 });
