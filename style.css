@@ -7969,3 +7969,15 @@ body.dashboard-mode .first-run-notice { display: none !important; }
 @media (max-width: 1200px) {
   #itemAddForm .customer-add-grid > .customer-add-action { order: 99; grid-column: 1 / -1; }
 }
+
+/* Invoice settings bar: Price mode, Copies, Paper and Quotation fit on one line */
+@media screen and (min-width: 992px) {
+  .invoice-body-actions { align-items: center; }
+  .invoice-body-settings { flex-wrap: nowrap; flex: 1 1 auto; min-width: 0; gap: 12px; }
+  .invoice-body-settings .topbar-price-setting { width: 250px; flex: 0 1 250px; }
+  .invoice-body-settings .topbar-copies-setting { width: 175px; flex: 0 1 175px; }
+  .invoice-body-settings .topbar-paper-setting { width: 175px; flex: 0 1 175px; }
+  .invoice-body-settings .topbar-setting { gap: 6px; }
+  .invoice-body-settings .quote-toggle-setting { margin-left: 0; padding-left: 14px; flex: 0 0 auto; white-space: nowrap; }
+  .invoice-body-settings .setting-label { white-space: nowrap; }
+}

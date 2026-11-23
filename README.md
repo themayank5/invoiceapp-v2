@@ -20,6 +20,19 @@ Works in **Chrome or Edge** (they can read and write a folder on your computer; 
    `invoices.csv`) and you can start straight away.
 3. Fill in **Business & Invoice Setup** (your business, bank and terms), then add customers and items.
 
+### Not sure what to add? Try the sample data
+
+The guide page has a **Sample data** section with a ready-made folder (also in this repository as
+`sample-data/InvoiceGen-sample-data.zip`). It holds made-up customers, items, sellers and bank details.
+
+1. Download and unzip it. You get a folder called `InvoiceGen-sample-data`.
+2. In the app click **Connect Database** and choose that unzipped folder.
+3. Look through **Business & Invoice Setup**, **Customer Details** and **Item Details**, then create an invoice.
+4. When you are ready for real use, connect a **new empty folder** instead. Do not use the sample folder for your real
+   business, because the practice invoices would stay in it.
+
+The sample contains 5 customers, 15 items, 5 sellers and 2 bank/UPI entries. All of it is invented.
+
 Back this folder up regularly (the app also has **Backup & Restore**). It is your only copy of your invoices.
 Each person who uses the app has their own folder; nothing is shared between users.
 
@@ -41,6 +54,8 @@ and installation only work from `https://` or `http://localhost`, not from a dou
 
 - `index.html`, `landing.css`, `landing.js` – the guide page (English and Hindi) that opens first
 - `app.html`, `app.js`, `style.css`, `i18n.js`, `folder-data.js` – the app itself
+- `sample-data/` – the downloadable sample data folder (zip) offered on the guide page
+- `tools/landing-css/` – how to rebuild the guide page stylesheet (Tailwind + daisyUI)
 - `lib/`, `fonts/` – libraries and fonts, bundled so nothing loads from the internet
 - `manifest.webmanifest`, `sw.js`, `icons/` – installable app and offline start
 - `FEATURES.md` – what the app does

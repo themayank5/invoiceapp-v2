@@ -32,6 +32,7 @@
       <nav class="hidden items-center gap-1 text-sm font-medium md:flex" aria-label="Sections">
         <a class="rounded-full px-4 py-2 transition hover:bg-primary/10 hover:text-primary" href="#features" data-t="navFeatures">Features</a>
         <a class="rounded-full px-4 py-2 transition hover:bg-primary/10 hover:text-primary" href="#steps" data-t="navSteps">How to start</a>
+        <a class="rounded-full px-4 py-2 transition hover:bg-primary/10 hover:text-primary" href="#sample" data-t="navSample">Sample data</a>
         <a class="rounded-full px-4 py-2 transition hover:bg-primary/10 hover:text-primary" href="#faq" data-t="navFaq">FAQ</a>
       </nav>
 
@@ -195,6 +196,41 @@
           </div>
         </li>
       </ul>
+    </section>
+
+    <!-- Sample data -->
+    <section id="sample" class="scroll-mt-20 border-y border-base-300 bg-base-200">
+      <div class="mx-auto w-full max-w-5xl px-4 py-16">
+        <div class="text-center">
+          <span class="badge badge-success badge-outline" data-t="sampleBadge">Try it first</span>
+          <h2 class="mt-3 text-3xl font-extrabold" data-t="sampleTitle">Not sure what to add? Try our sample data</h2>
+          <p class="mx-auto mt-2 max-w-2xl opacity-70" data-t="sampleSub">Download a ready-made data folder with example customers, items, sellers and bank details. Connect it to the app and see how everything works. All the data is made up.</p>
+        </div>
+        <div class="mt-10 grid gap-6 lg:grid-cols-5">
+          <div class="card border border-base-300 bg-base-100 shadow-sm lg:col-span-2"><div class="card-body">
+            <h3 class="card-title" data-t="sampleBoxTitle">What is inside</h3>
+            <ul class="mt-1 space-y-2 text-sm">
+              <li class="flex items-center gap-2"><span class="lp-tick">&#10003;</span><span data-t="sampleIn1">5 sample customers</span></li>
+              <li class="flex items-center gap-2"><span class="lp-tick">&#10003;</span><span data-t="sampleIn2">15 sample items</span></li>
+              <li class="flex items-center gap-2"><span class="lp-tick">&#10003;</span><span data-t="sampleIn3">5 sample sellers</span></li>
+              <li class="flex items-center gap-2"><span class="lp-tick">&#10003;</span><span data-t="sampleIn4">2 bank and UPI entries</span></li>
+            </ul>
+            <div class="card-actions mt-4"><a class="btn btn-primary w-full" href="sample-data/InvoiceGen-sample-data.zip" download data-t="sampleBtn">Download sample data folder</a></div>
+            <p class="text-xs opacity-60" data-t="sampleNote">A small .zip file (about 4 KB).</p>
+          </div></div>
+          <div class="card border border-base-300 bg-base-100 shadow-sm lg:col-span-3"><div class="card-body">
+            <h3 class="card-title" data-t="sampleHowTitle">How to use it</h3>
+            <ol class="mt-1 space-y-3 text-sm">
+              <li class="flex gap-3"><span class="lp-num !h-8 !w-8 shrink-0 text-sm">1</span><span data-t="sampleH1">Download the file and <b>unzip it</b>. You get a folder called <b>InvoiceGen-sample-data</b>.</span></li>
+              <li class="flex gap-3"><span class="lp-num !h-8 !w-8 shrink-0 text-sm">2</span><span data-t="sampleH2">Open the app and press <b>Connect Database</b>. Choose that unzipped folder.</span></li>
+              <li class="flex gap-3"><span class="lp-num !h-8 !w-8 shrink-0 text-sm">3</span><span data-t="sampleH3">Look through <b>Business &amp; Invoice Setup</b>, <b>Customer Details</b> and <b>Item Details</b> to see how the entries look.</span></li>
+              <li class="flex gap-3"><span class="lp-num !h-8 !w-8 shrink-0 text-sm">4</span><span data-t="sampleH4">Go to <b>Generate Invoice</b>, pick a sample customer, add a few items and save an invoice.</span></li>
+              <li class="flex gap-3"><span class="lp-num !h-8 !w-8 shrink-0 text-sm">5</span><span data-t="sampleH5">When you are ready, create a <b>new empty folder</b> and connect that. Your real data starts clean.</span></li>
+            </ol>
+            <div role="alert" class="alert alert-warning alert-soft mt-2 text-sm"><span data-t="sampleWarn">Do not use the sample folder for your real business. The invoices you try out would stay in it.</span></div>
+          </div></div>
+        </div>
+      </div>
     </section>
 
     <!-- Good to know -->
