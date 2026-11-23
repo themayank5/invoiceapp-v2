@@ -14,13 +14,14 @@ Works in **Chrome or Edge** (they can read and write a folder on your computer; 
 
 ## Set up your data folder (first time only)
 
-1. Create a folder on your computer, for example `Documents\InvoiceGen-data`.
-2. Copy the six files from the `csv-template` folder of this project into it
-   (`customers.csv`, `items.csv`, `seller.csv`, `bank.csv`, `terms.csv`, `invoices.csv`).
-3. In the app click **Connect Database**, choose that folder and allow the browser to edit the files.
-4. Fill in **Business & Invoice Setup** (your business, bank and terms).
+1. Create an empty folder on your computer, for example `Documents\InvoiceGen-data`.
+2. In the app click **Connect Database**, choose that folder and allow the browser to edit it.
+   The app creates its six data files there (`customers.csv`, `items.csv`, `seller.csv`, `bank.csv`, `terms.csv`,
+   `invoices.csv`) and you can start straight away.
+3. Fill in **Business & Invoice Setup** (your business, bank and terms), then add customers and items.
 
 Back this folder up regularly (the app also has **Backup & Restore**). It is your only copy of your invoices.
+Each person who uses the app has their own folder; nothing is shared between users.
 
 ## Host it on GitHub Pages
 
@@ -41,5 +42,4 @@ and installation only work from `https://` or `http://localhost`, not from a dou
 - `index.html`, `app.js`, `style.css`, `i18n.js`, `folder-data.js` – the app
 - `lib/`, `fonts/` – libraries and fonts, bundled so nothing loads from the internet
 - `manifest.webmanifest`, `sw.js`, `icons/` – installable app and offline start
-- `csv-template/` – empty data files to start from
 - `FEATURES.md` – what the app does

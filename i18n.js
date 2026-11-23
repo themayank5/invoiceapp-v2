@@ -440,7 +440,7 @@ const HI = {
 
   /* ----- dialogs ----- */
   'Choose the app’s CSV folder': 'ऐप का CSV फ़ोल्डर चुनें',
-  'Choose csv folder': 'csv फ़ोल्डर चुनें',
+  'Choose data folder': 'डेटा फ़ोल्डर चुनें',
   'Choose CSV file': 'CSV फ़ाइल चुनें',
   'Confirm deletion': 'हटाने की पुष्टि करें',
   'Override saved invoice?': 'सहेजे गए चालान को बदलें?',
@@ -593,7 +593,7 @@ Object.assign(HI, {
   'The database is not connected.': 'डेटाबेस जुड़ा हुआ नहीं है।',
   'Your invoices, customers, items and settings are kept in CSV files on this computer. Until they are connected, nothing can be saved, so the app is locked.': ' आपके चालान, ग्राहक, वस्तुएँ और सेटिंग इस कंप्यूटर की CSV फ़ाइलों में रखी जाती हैं। जब तक वे जुड़ती नहीं, कुछ भी सहेजा नहीं जा सकता, इसलिए ऐप बंद है।',
   'Click Connect Database.': 'डेटाबेस जोड़ें पर क्लिक करें।',
-  'In the folder window, choose the csv folder that is next to index.html (it holds the six CSV files).': 'फ़ोल्डर वाली विंडो में index.html के पास वाला csv फ़ोल्डर चुनें (उसमें छह CSV फ़ाइलें हैं)।',
+  'In the folder window, choose your data folder. A new, empty folder is fine: the app creates its data files there.': 'फ़ोल्डर वाली विंडो में अपना डेटा फ़ोल्डर चुनें। नया खाली फ़ोल्डर भी चलेगा, ऐप वहाँ अपनी डेटा फ़ाइलें खुद बना लेता है।',
   'Allow the browser to edit the files when it asks.': 'ब्राउज़र पूछे तो फ़ाइलें बदलने की अनुमति दें।',
   'Connecting…': 'जोड़ा जा रहा है…',
   'This browser cannot open the CSV folder. Open the app in the latest Chrome or Edge.': 'यह ब्राउज़र CSV फ़ोल्डर नहीं खोल सकता। ऐप को नवीनतम Chrome या Edge में खोलें।',

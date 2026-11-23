@@ -931,8 +931,8 @@ function confirmDestructiveAction({ title, message, confirmLabel = 'Delete', act
 function showCsvHelp(_kind, message = '') {
   $('#csvHelpTitle').textContent = 'Connect all app CSV files';
   $('#csvHelpPathFilename').textContent = CSV_FILES.map(file => `${file}.csv`).join(', ');
-  $('#csvHelpMessage').textContent = 'Connect all six CSV files in the app’s csv folder at once. Changes will update those files directly.';
-  $('#csvHelpFinalStep').innerHTML = 'Select the <code>csv</code> folder. The app will automatically connect all six CSV files.';
+  $('#csvHelpMessage').textContent = 'Choose the folder that holds your data. Everything you save is written to files in that folder, on your computer.';
+  $('#csvHelpFinalStep').innerHTML = 'Select your data folder. An empty folder is fine: the app creates the six data files in it.';
   $('#csvHelpError').textContent = message;
   $('#csvHelpError').hidden = !message;
   const chooseButton = $('#csvHelpChooseButton');
@@ -940,7 +940,7 @@ function showCsvHelp(_kind, message = '') {
   chooseButton.dataset.csvHelpConnect = 'all';
   chooseButton.disabled = !canPickFile;
   chooseButton.textContent = !canPickFile ? 'File access unavailable'
-    : 'Choose csv folder';
+    : 'Choose data folder';
   if (!canPickFile) {
     $('#csvHelpError').textContent = 'CSV file access is not supported in this browser. Open this app in the latest Chrome or Edge.';
     $('#csvHelpError').hidden = false;
@@ -4183,6 +4183,8 @@ function save() {
     rememberDirectory = true
   } = {}) {
     let handles;
+    const createdFiles = [];
+    const pickedByUser = !directoryHandle;   // only a folder chosen just now may get missing files created (never a remembered folder)
     try {
       if (!directoryHandle) {
         if (!showPicker || typeof window.showDirectoryPicker !== 'function') {
@@ -4200,6 +4202,33 @@ function save() {
       if (permission !== 'granted') throw new Error('Write permission was not granted for the selected csv folder.');
 
       handles = {};
+      if (pickedByUser) {
+        // A new, empty folder is fine: the app creates the data files itself. Ask first if the folder has none of them yet.
+        const missing = [];
+        for (const kind of CSV_FILES) {
+          try { await directoryHandle.getFileHandle(`${kind}.csv`); } catch (error) {
+            if (error.name !== 'NotFoundError') throw error;
+            missing.push(kind);
+          }
+        }
+        if (missing.length === CSV_FILES.length && !confirm(`The folder “${directoryHandle.name}” has no InvoiceGen data yet.
+
+Set it up as your new data folder? Six empty data files (customers, items, seller, bank, terms, invoices) will be created in it.
+
+Choose Cancel if this is the wrong folder.`)) return;
+        for (const kind of missing) {
+          const created = await directoryHandle.getFileHandle(`${kind}.csv`, { create: true });
+          const writable = await created.createWritable();
+          try {
+            await writable.write(emptyCsvContent(kind));
+            await writable.close();
+          } catch (error) {
+            try { await writable.abort(); } catch { /* already closed */ }
+            throw error;
+          }
+          createdFiles.push(`${kind}.csv`);
+        }
+      }
       for (const kind of CSV_FILES) {
         const filename = `${kind}.csv`;
         let handle;
@@ -4207,7 +4236,7 @@ function save() {
           handle = await directoryHandle.getFileHandle(filename);
         } catch (error) {
           if (error.name === 'NotFoundError') {
-            throw new Error(`The selected csv folder is missing ${filename}. Make sure it contains all six CSV files.`);
+            throw new Error(`The selected csv folder is missing ${filename}. Choose a folder that has all six data files, or an empty folder to start fresh.`);
           }
           throw error;
         }
@@ -4271,8 +4300,17 @@ function save() {
     bootstrap.Modal.getOrCreateInstance($('#csvHelpModal')).hide();
     render();
     if (edSec === 'invoiceArchive' && !$('#dashboardPage').hidden) openEditor('invoiceArchive');
+    if (createdFiles.length) showToast(`New data folder ready: created ${createdFiles.join(', ')}. Start with Business & Invoice Setup.`, { type: 'success', duration: 9000 });
     folderNotes.forEach(note => showToast(note, { type: 'info' }));
     return true;
+  }
+
+  // The content of a brand-new data file: just the header row.
+  function emptyCsvContent(kind) {
+    if (kind === 'customers') return customerCsvContent([]);
+    if (kind === 'items') return itemCsvContent([]);
+    if (kind === 'invoices') return invoiceArchiveCsv([]);
+    return profileCsvContent(kind, []);
   }
 
   async function restoreCsvConnection() {
@@ -7698,7 +7736,7 @@ async function connectFromGate() {
     }
     if (result !== true) result = await connectAllCsvs(null, { showErrors: false });                      // otherwise choose the folder
     if (result === false) {
-      $('#databaseGateError').textContent = csvConnectionNotice || 'The database could not be connected. Choose the csv folder that contains the six CSV files.';
+      $('#databaseGateError').textContent = csvConnectionNotice || 'The database could not be connected. Choose your data folder (an empty folder is fine).';
       $('#databaseGateError').hidden = false;
     }
   } catch (error) {
@@ -7855,7 +7893,7 @@ window.addEventListener('appinstalled', () => {
   installPromptEvent = null;
   const button = $('#btnInstallApp');
   if (button) button.hidden = true;
-  showToast('InvoiceGen is installed. Open it from your desktop or Start menu, then use Connect Database to pick your csv folder.', { type: 'success', duration: 9000 });
+  showToast('InvoiceGen is installed. Open it from your desktop or Start menu, then use Connect Database to pick your data folder.', { type: 'success', duration: 9000 });
 });
 document.addEventListener('click', async e => {
   if (!e.target.closest?.('#btnInstallApp') || !installPromptEvent) return;
