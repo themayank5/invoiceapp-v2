@@ -1023,12 +1023,6 @@ async function pickConnectedCsvFile(kind) {
   return handle;
 }
 
-if (!sellerProfiles.length && S.seller.name) sellerProfiles = [structuredClone(S.seller)];
-if (!bankProfiles.length && S.bank.bank) bankProfiles = [structuredClone(S.bank)];
-if (!termsProfiles.length && S.terms.list.some(term => term.trim())) {
-  termsProfiles = [{ profileName: 'Default terms', terms: S.terms.list.filter(term => term.trim()) }];
-}
-
 function loadProfiles(kind) {
   try {
     const saved = localStorage.getItem(PROFILE_KEYS[kind]);
@@ -2064,15 +2058,7 @@ function save() {
 
       const file = await handle.getFile();
       const { customers: fileCustomers } = parseCustomerCsv(await file.text());
-      const mergedCustomers = [...fileCustomers];
-      const seen = new Set(mergedCustomers.map(customerDuplicateKey));
-      importedCustomers.forEach(customer => {
-        const key = customerDuplicateKey(customer);
-        if (!seen.has(key)) {
-          seen.add(key);
-          mergedCustomers.push(customer);
-        }
-      });
+      const mergedCustomers = [...fileCustomers];   // the connected folder is the one source of truth: nothing from the browser is mixed in
       if (!saveImportedCustomers(mergedCustomers)) {
         throw new Error('Could not save customer details in browser storage.');
       }
@@ -3826,15 +3812,7 @@ function save() {
       const handle = providedHandle || await pickConnectedCsvFile(kind);
       const expectedName = `${kind}.csv`;
       const fileProfiles = parseProfileCsv(kind, await (await handle.getFile()).text());
-      const merged = [...fileProfiles];
-      const seen = new Set(merged.map(profile => profileIdentity(kind, profile)));
-      profileList(kind).forEach(profile => {
-        const key = profileIdentity(kind, profile);
-        if (!seen.has(key)) {
-          seen.add(key);
-          merged.push(profile);
-        }
-      });
+      const merged = [...fileProfiles];   // the connected folder is the one source of truth
       const previousHandle = profileCsvHandles[kind];
       profileCsvHandles[kind] = handle;
       try {
@@ -4138,15 +4116,7 @@ function save() {
       const handle = providedHandle || await pickConnectedCsvFile('items');
 
       const { items: fileItems } = parseItemCsv(await (await handle.getFile()).text());
-      const mergedItems = [...fileItems];
-      const seen = new Set(mergedItems.map(itemDuplicateKey));
-      catalogItems.forEach(item => {
-        const key = itemDuplicateKey(item);
-        if (!seen.has(key)) {
-          seen.add(key);
-          mergedItems.push(item);
-        }
-      });
+      const mergedItems = [...fileItems];   // the connected folder is the one source of truth
       const previousItems = catalogItems;
       const previousHandle = itemCsvHandle;
       if (!saveCatalogItems(mergedItems)) throw new Error('Could not save item details in browser storage.');
@@ -4287,6 +4257,9 @@ Choose Cancel if this is the wrong folder.`)) return;
       if (showErrors) showCsvHelp('all', csvConnectionNotice);
       return false;
     }
+    // A brand-new, empty database starts from scratch: forget the invoice in progress and the invoice numbers the browser kept from an earlier database.
+    const databaseIsEmpty = [importedCustomers, catalogItems, archivedInvoices, sellerProfiles, bankProfiles, termsProfiles].every(list => !list.length);
+    if (databaseIsEmpty) startFreshDatabase();
     const folderNotes = await onFolderConnected(directoryHandle);   // pictures folder, one-time clean-up, app-settings.json
     csvConnectionNotice = '';
     if (rememberDirectory) {
@@ -4304,6 +4277,17 @@ Choose Cancel if this is the wrong folder.`)) return;
     if (createdFiles.length) showToast(`New data folder ready: created ${createdFiles.join(', ')}. Start with Business & Invoice Setup.`, { type: 'success', duration: 9000 });
     folderNotes.forEach(note => showToast(note, { type: 'info' }));
     return true;
+  }
+
+  function startFreshDatabase() {
+    S = blankInvoice();
+    S.lang = uiLang;
+    S.round = roundOffDefault;
+    numbering.counters = {};
+    numbering.ignored = [];
+    saveNumbering();
+    if (numbering.auto) S.meta.no = nextInvoiceNumber(S.meta.date);
+    save();
   }
 
   // The content of a brand-new data file: just the header row.
