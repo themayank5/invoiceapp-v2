@@ -4183,7 +4183,7 @@ function save() {
   const databaseConnectedForSample = () => customerCsvHandle && itemCsvHandle && profileCsvHandles.seller && profileCsvHandles.bank && profileCsvHandles.terms;
 
   async function loadSampleData() {
-    if (!databaseConnectedForSample()) { showCsvHelp('all', 'Connect your database folder first. The sample data is added to it.'); return; }
+    if (!databaseConnectedForSample()) { showCsvHelp('all', 'Connect your database folder first. The sample data is added to it.'); return false; }
     try {
       const sample = sampleRecords();
       const seenCustomers = new Set(importedCustomers.map(customerDuplicateKey));
@@ -4201,16 +4201,19 @@ function save() {
       }
       const total = Object.values(added).reduce((a, b) => a + b, 0);
       showToast(total ? `Sample data added: ${added.customers} customers, ${added.items} items, ${added.seller} sellers, ${added.bank} bank entries.` : 'The sample data is already there.', { type: total ? 'success' : 'info', duration: 7000 });
+      setSampleMode(true);
       render();
       if (setupWizard) renderSetupStep(); else if (edSec && !$('#dashboardPage').hidden) openEditor(edSec);
+      return true;
     } catch (error) {
       console.error('Could not load the sample data.', error);
       showToast(error.message || 'Could not load the sample data.', { type: 'error' });
+      return false;
     }
   }
 
   async function removeSampleData() {
-    if (!databaseConnectedForSample()) { showCsvHelp('all', 'Connect your database folder first.'); return; }
+    if (!databaseConnectedForSample()) { showCsvHelp('all', 'Connect your database folder first.'); return false; }
     try {
       const sample = sampleRecords();
       const customerKeys = new Set(sample.customers.map(customerDuplicateKey));
@@ -4226,13 +4229,22 @@ function save() {
         removed[kind] = profileList(kind).length - keep.length;
         if (removed[kind]) await persistProfiles(kind, keep);
       }
+      // The sample business that was filled into the invoice goes too, so a real setup starts empty.
+      const blank = blankInvoice();
+      if (sample.seller.some(p => p.name === S.seller.name)) S.seller = blank.seller;
+      if (sample.bank.some(p => p.bank === S.bank.bank && p.upi === S.bank.upi)) S.bank = blank.bank;
+      if (sample.terms.some(p => (p.terms || []).join('|') === (S.terms.list || []).join('|'))) S.terms = blank.terms;
+      save();
+      setSampleMode(false);
       const total = Object.values(removed).reduce((a, b) => a + b, 0);
       showToast(total ? `Sample data removed: ${removed.customers} customers, ${removed.items} items, ${removed.seller} sellers, ${removed.bank} bank entries. Anything you changed or added yourself was kept.` : 'No sample data was found.', { type: total ? 'success' : 'info', duration: 8000 });
       render();
       if (edSec && !$('#dashboardPage').hidden) openEditor(edSec);
+      return true;
     } catch (error) {
       console.error('Could not remove the sample data.', error);
       showToast(error.message || 'Could not remove the sample data.', { type: 'error' });
+      return false;
     }
   }
 
@@ -4351,7 +4363,7 @@ function save() {
           ? `<td>${esc(profile.bank)}</td><td>${esc(profile.acc)}</td><td>${esc(profile.ifsc)}</td><td>${esc(profile.branch)}</td><td>${esc(profile.upi)}</td><td>${profile.qrAmt ? 'Yes' : 'No'}</td>`
           : `<td>${esc(profile.profileName)}</td><td colspan="2">${profile.terms.map((term, termIndex) => `${termIndex + 1}. ${esc(term)}`).join('<br>')}</td>`;
       return `<tr class="${activeIndex === index ? 'profile-active-row' : ''}"><th scope="row" class="directory-row-number">${index + 1}</th>${cells}<td class="directory-row-actions">
-        <button type="button" class="btn btn-sm btn-outline-primary" data-profile-activate="${kind}:${index}" ${activeIndex === index ? 'disabled' : ''}>${activeIndex === index ? 'Active' : 'Use'}</button><button type="button" class="btn btn-sm btn-outline-secondary" data-profile-edit="${kind}:${index}">Edit</button><button type="button" class="btn btn-sm btn-outline-danger" data-profile-delete="${kind}:${index}">Delete</button>
+        <button type="button" class="btn btn-sm ${activeIndex === index ? 'btn-success profile-active-btn' : 'btn-outline-primary'}" data-profile-activate="${kind}:${index}" ${activeIndex === index ? 'disabled aria-pressed="true"' : ''}>${activeIndex === index ? '✓ Active' : 'Use'}</button><button type="button" class="btn btn-sm btn-outline-secondary" data-profile-edit="${kind}:${index}">Edit</button><button type="button" class="btn btn-sm btn-outline-danger" data-profile-delete="${kind}:${index}">Delete</button>
       </td></tr>`;
     };
     const sh = (key, label) => sortHeader(kind, key, label);
@@ -4891,7 +4903,7 @@ Choose Cancel if this is the wrong folder.`)) return;
     refreshCsvConnectionStatus();
     bootstrap.Modal.getOrCreateInstance($('#csvHelpModal')).hide();
     render();
-    if (databaseIsEmpty && !String(S.seller.name || '').trim()) openSetupWizard();   // a new, empty folder: walk the user through the setup
+    if (databaseIsEmpty && !String(S.seller.name || '').trim()) setTimeout(() => openOnboarding('start'), 450);   // a new, empty folder: a pop-up asks how to start (after the folder pop-up has closed)
     else if (edSec === 'invoiceArchive' && !$('#dashboardPage').hidden) openEditor('invoiceArchive');
     if (createdFiles.length) showToast(`New data folder ready: created ${createdFiles.join(', ')}. Start with Business & Invoice Setup.`, { type: 'success', duration: 9000 });
     folderNotes.forEach(note => showToast(note, { type: 'info' }));
@@ -4904,6 +4916,7 @@ Choose Cancel if this is the wrong folder.`)) return;
     S.round = roundOffDefault;
     numbering.counters = {};
     numbering.ignored = [];
+    setSampleMode(false);
     saveNumbering();
     if (numbering.auto) S.meta.no = nextInvoiceNumber(S.meta.date);
     save();
@@ -5642,7 +5655,12 @@ function renderInto(target, n = 1) {
   $('#pm').value = S.priceMode; $('#cp').value = S.copies;
   $('#paperSel').value = invoicePaper();
   const welcome = $('#firstRunNotice');
-  if (welcome) welcome.hidden = Boolean(archivePreviewInvoice) || Boolean(String(S.seller.name || '').trim());
+  const noBusiness = !archivePreviewInvoice && !String(S.seller.name || '').trim();
+  const folderIsEmpty = [importedCustomers, catalogItems, archivedInvoices, sellerProfiles, bankProfiles, termsProfiles].every(list => !list.length);
+  if (welcome) welcome.hidden = !(noBusiness && folderIsEmpty && !sampleModeOn());          // the full welcome only while the folder is empty
+  const missing = $('#missingBusinessNotice');
+  if (missing) missing.hidden = !(noBusiness && !folderIsEmpty && !sampleModeOn());          // the folder has data but no business details yet
+  updateSampleBanner();
   syncQuotationToggle();
   refreshCsvConnectionStatus();
 }
@@ -6515,6 +6533,242 @@ function openSetupWizard() {
   renderSetupStep();
 }
 
+/* ---------- first-time welcome: a pop-up window that sets up the business, or loads sample data ---------- */
+const SAMPLE_MODE_KEY = 'invoicegen_sample_mode_v1';
+const sampleModeOn = () => { try { return localStorage.getItem(SAMPLE_MODE_KEY) === '1'; } catch (error) { return false; } };
+function setSampleMode(on) {
+  try { if (on) localStorage.setItem(SAMPLE_MODE_KEY, '1'); else localStorage.removeItem(SAMPLE_MODE_KEY); } catch (error) { /* storage blocked */ }
+  updateSampleBanner();
+}
+function updateSampleBanner() {
+  const banner = $('#sampleBanner');
+  if (banner) banner.hidden = !sampleModeOn() || Boolean(archivePreviewInvoice);
+}
+
+const ONBOARD_STEPS = [['business', 'Your business'], ['payment', 'Payment details'], ['done', 'All set']];
+let onboardStep = 'start';
+
+function onboardModal() { return bootstrap.Modal.getOrCreateInstance($('#onboardModal')); }
+
+function openOnboarding(step = 'start') {
+  onboardStep = step;
+  renderOnboarding();
+  onboardModal().show();
+}
+
+function onboardStepsBar() {
+  const index = ONBOARD_STEPS.findIndex(([key]) => key === onboardStep);
+  return `<ol class="onboard-steps" aria-label="Setup progress">${ONBOARD_STEPS.map(([key, label], i) => `<li class="${i < index ? 'is-done' : ''} ${i === index ? 'is-current' : ''}"><span>${i < index ? '✓' : i + 1}</span>${label}</li>`).join('')}</ol>`;
+}
+
+function onboardField(label, path, { type = 'text', placeholder = '', required = false, attrs = '' } = {}) {
+  const [a, k] = path.split('.');
+  return `<div class="onboard-field"><label class="form-label">${label}${required ? ' <span class="text-danger" aria-hidden="true">*</span>' : ' <span class="text-muted">(optional)</span>'}</label>
+    <input class="form-control" type="${type}" value="${esc(S[a][k] ?? '')}" placeholder="${esc(placeholder)}" data-ob="${path}" ${attrs}></div>`;
+}
+
+function renderOnboarding(error = '') {
+  const title = $('#onboardTitle'), sub = $('#onboardSub'), body = $('#onboardBody'), footer = $('#onboardFooter');
+  const err = `<div class="onboard-error" id="onboardError" role="alert">${esc(error)}</div>`;
+  if (onboardStep === 'start') {
+    title.textContent = 'Welcome to InvoiceGen';
+    sub.textContent = 'How would you like to start?';
+    body.innerHTML = `<div class="onboard-choices">
+        <button type="button" class="onboard-choice is-primary" data-ob-go="business">
+          <span class="onboard-choice-icon" aria-hidden="true">🏢</span>
+          <strong>Set up my business</strong>
+          <span>Add your business name and address. It takes about two minutes. Then you can create invoices.</span>
+          <em>Recommended</em>
+        </button>
+        <button type="button" class="onboard-choice" data-ob-sample>
+          <span class="onboard-choice-icon" aria-hidden="true">🧪</span>
+          <strong>Try it with sample data</strong>
+          <span>See how the app works with example customers, items and a sample business. You can remove it any time.</span>
+        </button>
+      </div>${err}`;
+    footer.innerHTML = '<button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal">Skip for now</button>';
+    return;
+  }
+  title.textContent = 'Set up your business';
+  if (onboardStep === 'business') {
+    sub.textContent = 'This appears at the top of every invoice. Fields marked * are needed.';
+    const logo = S.seller.logo
+      ? `<div class="onboard-logo"><img src="${esc(S.seller.logo)}" alt="Your logo"><button type="button" class="btn btn-sm btn-outline-secondary" data-ob-logo-remove>Remove logo</button></div>`
+      : '';
+    body.innerHTML = `${onboardStepsBar()}
+      ${onboardField('Business name', 'seller.name', { required: true, placeholder: 'For example: Sharma General Store', attrs: 'autocomplete="organization"' })}
+      <div class="onboard-field"><label class="form-label">Address <span class="text-danger" aria-hidden="true">*</span></label>
+        <textarea class="form-control" rows="2" placeholder="Shop number, street, city, PIN code" data-ob="seller.addr">${esc(S.seller.addr || '')}</textarea></div>
+      <div class="onboard-row">
+        <div class="onboard-field"><label class="form-label">State <span class="text-danger" aria-hidden="true">*</span></label>
+          <select class="form-select" data-ob="seller.state">${stateOpts(S.seller.state)}</select></div>
+        <div class="onboard-field"><label class="form-label">GSTIN <span class="text-muted">(optional)</span></label>
+          <input class="form-control" type="text" value="${esc(S.seller.gstin || '')}" placeholder="15 characters" maxlength="15" data-ob="seller.gstin" data-ob-gstin>
+          <span class="gstin-hint d-block" data-ob-gstin-hint>${gstinHintHTML(S.seller.gstin || '')}</span></div>
+      </div>
+      <div class="onboard-row">
+        ${onboardField('Phone', 'seller.mobile', { placeholder: 'Mobile number', attrs: 'inputmode="tel"' })}
+        ${onboardField('Email', 'seller.email', { type: 'email', placeholder: 'name@example.com' })}
+      </div>
+      <div class="onboard-field"><label class="form-label">Logo <span class="text-muted">(optional)</span></label>
+        <input class="form-control" type="file" accept="image/*" data-ob-logo>${logo}</div>
+      ${err}`;
+    footer.innerHTML = '<button type="button" class="btn btn-outline-secondary" data-ob-go="start">Back</button><button type="button" class="btn btn-primary" data-ob-next>Next</button>';
+  } else if (onboardStep === 'payment') {
+    sub.textContent = 'So customers know how to pay you. You can skip this and add it later.';
+    body.innerHTML = `${onboardStepsBar()}
+      <div class="onboard-row">
+        ${onboardField('Bank name', 'bank.bank', { placeholder: 'For example: State Bank' })}
+        ${onboardField('Account number', 'bank.acc', { placeholder: 'Account number', attrs: 'inputmode="numeric"' })}
+      </div>
+      <div class="onboard-row">
+        ${onboardField('IFSC code', 'bank.ifsc', { placeholder: 'For example: SBIN0001234', attrs: 'maxlength="11"' })}
+        ${onboardField('Branch', 'bank.branch', { placeholder: 'Branch name' })}
+      </div>
+      ${onboardField('UPI ID', 'bank.upi', { placeholder: 'name@bank (shows as a QR code on the invoice)' })}
+      <div class="onboard-field"><label class="form-label">Terms &amp; conditions <span class="text-muted">(optional, one per line)</span></label>
+        <textarea class="form-control" rows="3" placeholder="For example: Goods once sold will not be taken back." data-ob-terms>${esc((S.terms.list || []).join('\n'))}</textarea></div>
+      ${err}`;
+    footer.innerHTML = '<button type="button" class="btn btn-outline-secondary" data-ob-go="business">Back</button><button type="button" class="btn btn-link" data-ob-skip>Skip for now</button><button type="button" class="btn btn-primary" data-ob-next>Next</button>';
+  } else {
+    sub.textContent = 'Your business is ready.';
+    const done = ok => `<span class="setup-check ${ok ? 'is-done' : ''}" aria-hidden="true">${ok ? '✓' : '–'}</span>`;
+    const row = (ok, text, note) => `<li>${done(ok)}<span>${text}${note ? ` <span class="text-muted">${note}</span>` : ''}</span></li>`;
+    body.innerHTML = `${onboardStepsBar()}
+      <div class="onboard-done"><h3>You are all set</h3>
+      <ul class="setup-checklist">
+        ${row(Boolean(String(S.seller.name || '').trim()), esc(S.seller.name || 'Business details'))}
+        ${row(Boolean(S.seller.logo), 'Logo', S.seller.logo ? '' : '(not added)')}
+        ${row([S.bank.bank, S.bank.acc, S.bank.upi].some(v => String(v || '').trim()), 'Bank & UPI', '(optional)')}
+        ${row((S.terms.list || []).some(t => String(t || '').trim()), 'Terms & conditions', '(optional)')}
+      </ul>
+      <p>Press <b>Create my first invoice</b>. On the invoice page, click the customer box to add your first customer and the item box to add your first item. You can change any of this later in <b>Business &amp; Invoice Setup</b>.</p></div>${err}`;
+    footer.innerHTML = '<button type="button" class="btn btn-outline-secondary" data-ob-go="payment">Back</button><button type="button" class="btn btn-primary" data-ob-finish>Create my first invoice</button>';
+  }
+}
+
+function validateOnboardStep() {
+  if (onboardStep === 'business') {
+    if (!String(S.seller.name || '').trim()) return 'Enter your business name.';
+    if (!String(S.seller.addr || '').trim()) return 'Enter your business address.';
+    if (!String(S.seller.state || '').trim()) return 'Choose your state.';
+    const gstin = String(S.seller.gstin || '').trim();
+    if (gstin && !GST_RE.test(gstin.toUpperCase())) return 'The GSTIN does not look right. Check it, or clear the box and add it later.';
+  }
+  if (onboardStep === 'payment') {
+    const ifsc = String(S.bank.ifsc || '').trim();
+    if (ifsc && !IFSC_RE.test(ifsc.toUpperCase())) return 'The IFSC code does not look right. It has 11 characters, for example SBIN0001234.';
+  }
+  return '';
+}
+
+async function finishOnboarding() {
+  try {
+    await syncSetupProfiles();
+  } catch (error) {
+    console.error('Could not save the setup.', error);
+    renderOnboarding(error.message || 'Could not save your setup. Check that the database folder is connected.');
+    return;
+  }
+  save();
+  onboardModal().hide();
+  showGeneratePage();
+  render();
+  showToast('Your business is set up. Create your first invoice below.', { type: 'success' });
+}
+
+// Sample mode: example data is loaded, and the business details on the invoice are filled in so an invoice can be made at once.
+async function startSampleMode() {
+  const loaded = await loadSampleData();
+  if (!loaded) return;
+  if (!String(S.seller.name || '').trim()) {
+    const seller = sellerProfiles.find(p => p.name === 'Sunrise Traders') || sellerProfiles[0];
+    const bank = bankProfiles[0], terms = termsProfiles[0];
+    if (seller) S.seller = { ...S.seller, ...structuredClone(seller) };
+    if (bank) S.bank = { ...S.bank, ...structuredClone(bank) };
+    if (terms) S.terms = { ...S.terms, list: [...(terms.terms || [])] };
+    save();
+  }
+  setSampleMode(true);
+  render();
+}
+
+document.addEventListener('click', async e => {
+  const modal = e.target.closest('#onboardModal');
+  if (modal) {
+    const go = e.target.closest('[data-ob-go]');
+    if (go) { onboardStep = go.dataset.obGo; renderOnboarding(); return; }
+    if (e.target.closest('[data-ob-sample]')) {
+      const button = e.target.closest('[data-ob-sample]');
+      button.disabled = true;
+      onboardModal().hide();
+      await startSampleMode();
+      return;
+    }
+    if (e.target.closest('[data-ob-next]') || e.target.closest('[data-ob-skip]')) {
+      const skipping = Boolean(e.target.closest('[data-ob-skip]'));
+      const problem = skipping ? '' : validateOnboardStep();
+      if (problem) { renderOnboarding(problem); return; }
+      onboardStep = onboardStep === 'business' ? 'payment' : 'done';
+      renderOnboarding();
+      return;
+    }
+    if (e.target.closest('[data-ob-finish]')) { finishOnboarding(); return; }
+    if (e.target.closest('[data-ob-logo-remove]')) { S.seller.logo = ''; save(); render(); renderOnboarding(); }
+    return;
+  }
+  if (e.target.closest('#btnFirstRunSetup')) { openOnboarding(String(S.seller.name || '').trim() ? 'business' : 'start'); return; }
+  if (e.target.closest('#btnFirstRunSample')) { openOnboarding('start'); return; }
+  if (e.target.closest('#btnMissingBusiness')) { openOnboarding('business'); return; }
+  if (e.target.closest('#btnSampleSetup')) {
+    confirmDestructiveAction({
+      title: 'Start your own setup?', message: 'The sample data will be removed first, so you start clean. Your own data is kept.',
+      confirmLabel: 'Remove sample and start', action: async () => { await removeSampleData(); openOnboarding('business'); }
+    });
+    return;
+  }
+  if (e.target.closest('#btnSampleRemove')) {
+    confirmDestructiveAction({
+      title: 'Remove the sample data?', message: 'The example customers, items, sellers and bank entries that are still unchanged will be removed. Your own data is kept.',
+      confirmLabel: 'Remove sample data', action: () => removeSampleData()
+    });
+  }
+});
+
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (!t.closest?.('#onboardModal')) return;
+  if (t.dataset.obTerms !== undefined) { S.terms.list = t.value.split(/\r?\n/).map(line => line.trim()).filter(Boolean); save(); return; }
+  if (!t.dataset.ob) return;
+  const [a, k] = t.dataset.ob.split('.');
+  S[a][k] = t.value;
+  if (t.dataset.obGstin !== undefined) {
+    const hint = t.closest('.onboard-field').querySelector('[data-ob-gstin-hint]');
+    if (hint) hint.innerHTML = gstinHintHTML(t.value);
+  }
+  const error = $('#onboardError');
+  if (error) error.textContent = '';
+  save();
+});
+
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (!t.closest?.('#onboardModal')) return;
+  if (t.dataset.ob === 'seller.state') { S.seller.state = t.value; save(); const error = $('#onboardError'); if (error) error.textContent = ''; return; }
+  if (t.dataset.obLogo !== undefined && t.files[0]) {
+    readFileDataUrl(t.files[0]).then(dataUrl => { S.seller.logo = dataUrl; save(); render(); renderOnboarding(); })
+      .catch(error => { t.value = ''; renderOnboarding(error.message || 'Could not use that image.'); });
+  }
+});
+
+$('#onboardModal').addEventListener('hidden.bs.modal', async () => {
+  // Closing half-way keeps what was typed. If the business details are complete, save them to the database too.
+  if (String(S.seller.name || '').trim() && String(S.seller.addr || '').trim() && String(S.seller.state || '').trim() && profileCsvHandles.seller) {
+    try { await syncSetupProfiles(); } catch (error) { console.warn('Could not save the setup details.', error); }
+  }
+  render();
+});
+
 /* ---------- events ---------- */
 document.addEventListener('click', async e => {
   const t = e.target;
@@ -6608,7 +6862,7 @@ document.addEventListener('click', async e => {
     closeDirectoryDrawer();
     return;
   }
-  if (t.closest('#btnSetup')) openSetupWizard();
+  if (t.closest('#btnSetup')) openOnboarding('business');
   if (t.closest('[data-page="generate"]')) {
     showGeneratePage();
     return;
@@ -8615,5 +8869,4 @@ document.addEventListener('click', async e => {
 });
 
 document.addEventListener('click', e => {
-  if (e.target.closest?.('#btnFirstRunSetup')) $('#nav-seller')?.click();
 });

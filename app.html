@@ -227,8 +227,24 @@
     </div>
 
     <div class="alert alert-info no-print first-run-notice" id="firstRunNotice" role="status" hidden>
-      <div><strong>Welcome!</strong> Start by adding your business details. Your name, address and GSTIN then appear on every invoice.</div>
-      <button type="button" class="btn btn-sm btn-primary" id="btnFirstRunSetup">Add business details</button>
+      <div><strong>Welcome!</strong> Set up your business so your name and address appear on every invoice, or try the app with sample data first.</div>
+      <div class="first-run-actions">
+        <button type="button" class="btn btn-sm btn-primary" id="btnFirstRunSetup">Set up my business</button>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="btnFirstRunSample">Try sample data</button>
+      </div>
+    </div>
+
+    <div class="alert alert-info no-print first-run-notice" id="missingBusinessNotice" role="status" hidden>
+      <div><strong>Add your business details.</strong> Your name and address are not on your invoices yet.</div>
+      <div class="first-run-actions"><button type="button" class="btn btn-sm btn-primary" id="btnMissingBusiness">Add business details</button></div>
+    </div>
+
+    <div class="alert alert-warning no-print sample-banner" id="sampleBanner" role="status" hidden>
+      <div><strong>You are using sample data.</strong> The customers, items and business details are made-up examples.</div>
+      <div class="first-run-actions">
+        <button type="button" class="btn btn-sm btn-primary" id="btnSampleSetup">Set up my business</button>
+        <button type="button" class="btn btn-sm btn-outline-danger" id="btnSampleRemove">Remove sample data</button>
+      </div>
     </div>
 
     <div class="invoice-body-actions no-print" id="invoiceBodyActions">
@@ -509,6 +525,22 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-primary btn-lg" id="btnGateConnect">Connect Database</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade no-print" id="onboardModal" tabindex="-1" aria-labelledby="onboardTitle" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable onboard-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h5 class="modal-title" id="onboardTitle">Welcome to InvoiceGen</h5>
+            <div class="onboard-sub" id="onboardSub"></div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="onboardBody"></div>
+        <div class="modal-footer" id="onboardFooter"></div>
       </div>
     </div>
   </div>
