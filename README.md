@@ -56,8 +56,10 @@ kept.
 Because the sample data looks like real data to the app, use a **separate folder** for experiments and keep your real
 folder free of it.
 
-The guide page also offers a download of just the customers, items, sellers and bank details
-(`sample-data/InvoiceGen-sample-data.zip`). Unzip it and connect that folder if you prefer to start from files.
+The guide page also offers the same data as a downloadable folder (`sample-data/InvoiceGen-sample-data.zip`): the six CSV
+files, the logo and signature pictures, and the 16 sample invoices. Unzip it and connect that folder if you prefer to
+start from files. Its invoices are dated June to November 2026, so choose **All time** in Reports. (The in-app button
+dates them from today instead.)
 
 Back this folder up regularly (the app also has **Backup & Restore**). It is your only copy of your invoices.
 Each person who uses the app has their own folder; nothing is shared between users.

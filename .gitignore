@@ -13,3 +13,6 @@ node_modules/
 *.log
 Thumbs.db
 .DS_Store
+
+# Pictures the app saves next to your data files when the project folder itself is connected as the data folder
+images/
