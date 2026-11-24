@@ -134,9 +134,11 @@
       </button>
     </nav>
     <div class="sidebar-settings">
-      
-
-
+      <div class="sidebar-mobile-links">
+        <a class="sidebar-mobile-link" href="index.html?guide=1" target="_blank" rel="noopener">How to use</a>
+        <button type="button" class="sidebar-mobile-link" data-app-install hidden>Install app</button>
+        <button type="button" class="sidebar-mobile-link" data-app-refresh hidden>&#8635; Refresh</button>
+      </div>
     </div>
 
     <div class="sidebar-actions">
@@ -190,6 +192,7 @@
   </aside>
 
   <div class="sidebar-backdrop no-print" id="sidebarBackdrop"></div>
+  <div class="m-total-bar no-print" id="mTotalBar"><span><span class="m-total-label">Total</span> <span class="m-total-count" id="mTotalCount"></span></span><b id="mTotalValue"></b></div>
 
   <!-- ===================== MAIN ===================== -->
   <div class="main-wrapper">
@@ -210,8 +213,8 @@
           <option value="hi">हिन्दी</option>
         </select>
         <a class="btn btn-sm btn-outline-secondary topbar-guide-link" href="index.html?guide=1" target="_blank" rel="noopener" title="Open the guide: how to install the app and connect your data folder">How to use</a>
-        <button type="button" class="btn btn-sm btn-outline-primary topbar-install-btn" id="btnInstallApp" hidden title="Install InvoiceGen as an app with a desktop icon. It also opens without internet.">Install app</button>
-        <button type="button" class="btn btn-sm btn-outline-secondary topbar-refresh-btn" id="btnRefreshApp" hidden title="Reload the app and get the latest version (same as pressing F5)">&#8635; Refresh</button>
+        <button type="button" class="btn btn-sm btn-outline-primary topbar-install-btn" id="btnInstallApp" data-app-install hidden title="Install InvoiceGen as an app with a desktop icon. It also opens without internet.">Install app</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary topbar-refresh-btn" id="btnRefreshApp" data-app-refresh hidden title="Reload the app and get the latest version (same as pressing F5)">&#8635; Refresh</button>
       </div>
     </header>
 
@@ -249,7 +252,12 @@
     </div>
 
     <div class="invoice-body-actions no-print" id="invoiceBodyActions">
-      <div class="invoice-body-settings">
+      <button type="button" class="invoice-settings-toggle" id="invoiceSettingsToggle" aria-expanded="false" aria-controls="invoiceBodySettings">
+        <span class="invoice-settings-title">&#9881; Invoice settings</span>
+        <span class="invoice-settings-summary" id="invoiceSettingsSummary"></span>
+        <span class="invoice-settings-chevron" aria-hidden="true">&#9662;</span>
+      </button>
+      <div class="invoice-body-settings" id="invoiceBodySettings">
         <div class="setting-row topbar-setting topbar-price-setting">
           <label class="setting-label" for="pm">Price Mode</label>
           <select id="pm" class="setting-select" title="Price mode">

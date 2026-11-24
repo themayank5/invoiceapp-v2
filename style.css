@@ -8071,3 +8071,327 @@ body.dashboard-mode .first-run-notice { display: none !important; }
 
 .topbar-lang-setting .topbar-refresh-btn { white-space: nowrap; margin-left: 10px; }
 .topbar-refresh-btn[hidden] { display: none; }
+
+.customer-directory-tools:has([data-trash-empty]) { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ══════════ Phones and tablets ══════════ */
+.sidebar-mobile-links { display: none; }
+@media screen and (max-width: 767px) {
+  /* top bar: menu button, title and language only. The guide, install and refresh links live in the side menu. */
+  .topbar { grid-template-columns: minmax(0, 1fr) auto !important; padding: 8px 12px !important; align-items: center; }
+  .topbar-left { column-gap: 10px !important; min-width: 0; }
+  .topbar-title { font-size: 16px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .topbar-intro { display: none !important; }
+  .topbar-left .topbar-title { grid-row: 1 / span 2; align-self: center; }
+  .topbar-lang-setting { width: auto !important; flex-wrap: nowrap !important; }
+  .topbar-lang-setting .setting-label, .topbar-guide-link, .topbar-install-btn, .topbar-refresh-btn { display: none !important; }
+  .topbar-lang-setting .setting-select { min-width: 0 !important; width: 96px; height: 38px; font-size: 14px; }
+  .sidebar-mobile-links { display: grid; gap: 6px; padding: 12px 14px 4px; }
+  .sidebar-mobile-link { display: block; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid rgba(255,255,255,.18); border-radius: 8px; background: transparent; color: #e2e8f0; font-size: 14px; text-decoration: none; }
+  .sidebar-mobile-link[hidden] { display: none; }
+
+  /* banners take less room */
+  .backup-reminder, .first-run-notice, .sample-banner, #missingBusinessNotice { margin: 8px 12px !important; padding: 10px 12px !important; font-size: 13px; }
+  .backup-reminder .btn, .first-run-actions .btn, .sample-banner .btn { padding: 4px 10px; font-size: 13px; }
+
+  /* forms: 16px text stops phones from zooming in when a box is tapped; bigger touch targets */
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: 16px; }
+  .btn { min-height: 38px; }
+  .btn-sm { min-height: 36px; padding-left: 12px; padding-right: 12px; }
+  .modal-dialog { margin: 8px; }
+
+  /* tables become stacked cards */
+  table.mobile-cards, table.mobile-cards > tbody, table.mobile-cards > tfoot { display: block; width: 100%; }
+  table.mobile-cards > thead { display: none; }
+  table.mobile-cards > tbody > tr, table.mobile-cards > tfoot > tr { display: block; margin: 0 0 10px; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff !important; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+  table.mobile-cards > tfoot > tr { background: #f1f5f9 !important; }
+  table.mobile-cards td, table.mobile-cards th { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: auto !important; padding: 5px 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; text-align: right !important; word-break: break-word; }
+  table.mobile-cards td::before, table.mobile-cards th[data-label]::before { content: attr(data-label); flex: 0 0 38%; max-width: 38%; text-align: left; font-size: 12px; font-weight: 600; color: #64748b; text-transform: none; }
+  table.mobile-cards td[data-label=""]::before, table.mobile-cards th[data-label=""]::before { display: none; }
+  table.mobile-cards .directory-row-number, table.mobile-cards th[scope="row"] { display: none !important; }
+  table.mobile-cards td:first-of-type { font-weight: 700; justify-content: flex-start; text-align: left !important; font-size: 15px; padding-bottom: 8px !important; border-bottom: 1px solid #eef2f7 !important; margin-bottom: 4px; }
+  table.mobile-cards td:first-of-type::before { display: none; }
+  table.mobile-cards td.directory-row-actions { justify-content: flex-start; padding-top: 10px !important; border-top: 1px solid #eef2f7 !important; margin-top: 4px; }
+  table.mobile-cards td.directory-row-actions::before { display: none; }
+  table.mobile-cards .invoice-archive-actions, table.mobile-cards .directory-actions { flex-wrap: wrap; gap: 6px; }
+  .customer-directory-empty { text-align: center !important; }
+  table.mobile-cards td.customer-directory-empty { display: block; }
+}
+
+@media screen and (max-width: 767px) {
+  table.mobile-cards { min-width: 0 !important; max-width: 100% !important; table-layout: auto !important; }
+  table.mobile-cards > colgroup { display: none; }
+  .customer-directory-table-wrap, .table-responsive { overflow-x: visible; }
+}
+@media screen and (max-width: 767px) {
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+  .kpi-card { padding: 10px 12px !important; min-width: 0; }
+  .kpi-card .kpi-value { font-size: 18px !important; overflow-wrap: anywhere; }
+  .kpi-card .kpi-label { font-size: 10.5px !important; }
+  .kpi-card .kpi-sub { font-size: 11.5px !important; }
+  .archive-tabs { overflow-x: auto; flex-wrap: nowrap !important; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .archive-tabs::-webkit-scrollbar { display: none; }
+  .archive-tab { white-space: nowrap; flex: 0 0 auto; padding: 10px 14px !important; }
+  .archive-filter-bar { flex-wrap: wrap; }
+  .invoice-archive-heading, .customer-directory-heading { flex-direction: column; align-items: stretch !important; gap: 10px; }
+  .customer-directory-tools { width: 100%; flex-wrap: wrap; }
+  .directory-search-control { width: 100% !important; max-width: none !important; }
+}
+
+@media screen and (max-width: 767px) {
+  .customer-add-form:not(.is-open) > :not(.customer-directory-heading) { display: none !important; }
+  .customer-add-form > .customer-directory-heading { cursor: pointer; align-items: center !important; flex-direction: row !important; justify-content: space-between; flex-wrap: wrap; }
+  .customer-add-form > .customer-directory-heading > strong::after { content: "  ＋"; color: #2563eb; font-weight: 800; }
+  .customer-add-form.is-open > .customer-directory-heading > strong::after { content: "  −"; }
+  /* the item list shows only what matters on a phone; tap the item name for the rest */
+  table.mobile-cards td[data-label="HSN/SAC"], table.mobile-cards td[data-label="Cost"], table.mobile-cards td[data-label="Wholesale"],
+  table.mobile-cards td[data-label="Margin"], table.mobile-cards td[data-label="QtySold"], table.mobile-cards td[data-label="Revenue"],
+  table.mobile-cards td[data-label="LastSold"] { display: none; }
+}
+@media screen and (max-width: 767px) { table.mobile-cards td:first-of-type a { font-size: 15px; font-weight: 700; } }
+@media screen and (max-width: 767px) { table.mobile-cards td.customer-directory-empty { font-weight: 400 !important; font-size: 14px !important; border: 0 !important; justify-content: center !important; text-align: center !important; } }
+
+/* Invoice settings fold into one bar on phones */
+.invoice-settings-toggle { display: none; }
+@media screen and (max-width: 767px) {
+  .invoice-body-actions { flex-direction: column; align-items: stretch !important; gap: 10px; }
+  .invoice-settings-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #0f172a; text-align: left; }
+  .invoice-settings-title { font-weight: 700; font-size: 14px; white-space: nowrap; }
+  .invoice-settings-summary { flex: 1; min-width: 0; font-size: 12.5px; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .invoice-settings-chevron { transition: transform .15s; color: #64748b; }
+  .settings-open .invoice-settings-chevron { transform: rotate(180deg); }
+  .invoice-body-actions .invoice-body-settings { display: none; width: 100%; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
+  .invoice-body-actions.settings-open .invoice-body-settings { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+  .invoice-body-buttons { width: 100%; margin-left: 0; display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .invoice-body-buttons > .topbar-btn, .invoice-body-buttons .dropdown, .invoice-body-buttons .dropdown > .topbar-btn { width: 100%; justify-content: center; }
+}
+@media screen and (max-width: 767px) { .quote-toggle-setting { border-left: 0 !important; padding-left: 0 !important; margin-left: 0 !important; } }
+
+/* ══════════ Generate Invoice on a phone: the invoice sheet folds into cards and accordions ══════════ */
+.m-toggle, .m-total-bar { display: none; }
+.m-tax-rows, .m-bottom { display: contents; }
+@media screen and (max-width: 767px) {
+  body:not(.printing) #sheets { padding: 10px 10px 84px !important; overflow-x: visible !important; }
+  body:not(.printing) #sheets .sheet { min-width: 0 !important; width: 100% !important; max-width: 100% !important; padding: 12px 10px !important; box-sizing: border-box; }
+  /* sticky total bar */
+  body:not(.dashboard-mode):not(.printing) .m-total-bar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; align-items: center; justify-content: space-between; padding: 10px 16px; background: #0f172a; color: #fff; box-shadow: 0 -4px 16px rgba(15,23,42,.25); font-size: 14px; }
+  .m-total-bar b { font-size: 20px; }
+  .m-total-label { font-weight: 600; }
+  .m-total-count { opacity: .7; font-size: 12px; margin-left: 6px; }
+  /* the small "Details ▾" buttons */
+  body:not(.printing) #sheets .m-toggle { display: inline-flex; align-items: center; gap: 4px; margin: 4px 0; padding: 4px 10px; border: 1px solid #cbd5e1; border-radius: 999px; background: #f8fafc; color: #1d4ed8; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  #sheets .m-toggle .m-chev { transition: transform .15s; }
+  #sheets .m-toggle[aria-expanded="true"] .m-chev { transform: rotate(180deg); }
+
+  /* seller / customer / bottom blocks: short by default */
+  /* seller and customer cards always show everything. The invoice-details card and the shipping card open from a button. */
+  #sheets .sheet:not(.mo-meta) .m-meta-box { display: none !important; }
+  #sheets .sheet:not(.mo-ship) .Shipping1,
+  #sheets .sheet:not(.mo-ship) .lm-party:not(.cust-cell), #sheets .sheet:not(.mo-ship) .le-party:not(.cust-cell), #sheets .sheet:not(.mo-ship) .mn-party:not(.cust-cell), #sheets .sheet:not(.mo-ship) .cp-party:not(.cust-cell) { display: none !important; }
+#sheets .sheet:not(.mo-bottom) .m-bottom { display: none; }
+#sheets .sheet.mo-bottom .m-bottom { display: block; }
+  .m-bottom-toggle { margin-top: 8px; }
+
+  /* top of every template: one column */
+#sheets .sheet .lay-top, #sheets .sheet .lay-top > *, #sheets .sheet .blk.two, #sheets .sheet .sellerrow, #sheets .sheet .lm-band, #sheets .sheet .mn-head, #sheets .sheet .lm-parties, #sheets .sheet .le-parties, #sheets .sheet .mn-parties, #sheets .sheet .cp-parties, #sheets .sheet .cp-head { display: block !important; width: 100% !important; grid-template-columns: 1fr !important; }
+#sheets .sheet .blk.two > .cell, #sheets .sheet .sellerrow > .cell { width: 100% !important; border-right: 0 !important; }
+#sheets .sheet .logo { max-width: 120px; min-height: 0 !important; min-width: 0 !important; }
+#sheets .sheet .logo img { max-height: 56px; max-width: 120px; min-height: 0 !important; min-width: 0 !important; }
+#sheets .sheet .top h1, #sheets .sheet .lay-top h1 { font-size: 18px !important; }
+  /* invoice number, date, place of supply, due date: two across */
+#sheets .sheet .meta, #sheets .sheet .lm-chips, #sheets .sheet .le-chips, #sheets .sheet .cp-chips, #sheets .sheet .mn-meta { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 6px 10px !important; }
+#sheets .sheet .meta > div:nth-child(odd) { font-size: 11px; color: #64748b; font-weight: 600; }
+#sheets .sheet .meta > div { padding: 2px 4px !important; border: 0 !important; }
+#sheets .sheet .meta-chip, #sheets .sheet .mn-meta-row { min-width: 0; }
+#sheets .sheet .cust-search-input { width: 100% !important; }
+#sheets .sheet .price-list-corner { position: static !important; margin-top: 6px; }
+
+  /* items: one card per row */
+#sheets .sheet table.items, #sheets .sheet table.items > tbody { display: block; width: 100%; border: 0; }
+#sheets .sheet table.items > thead { display: none; }
+#sheets .sheet table.items tr.m-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 10px; margin: 0 0 10px; padding: 10px; border: 1px solid #d5dbe3; border-radius: 12px; background: #fff; position: relative; }
+#sheets .sheet table.items tr.m-row > td { display: block; width: auto !important; padding: 0 !important; border: 0 !important; background: transparent !important; text-align: left !important; min-width: 0; }
+#sheets .sheet table.items tr.m-row > td:nth-child(1) { display: none; }                       /* # */
+#sheets .sheet table.items tr.m-row > td:nth-child(2) { grid-column: 1 / 3; grid-row: 1; }       /* item */
+#sheets .sheet table.items tr.m-row > td:nth-child(11) { grid-column: 3; grid-row: 1; justify-self: end; }   /* delete */
+#sheets .sheet table.items tr.m-row > td:nth-child(5) { grid-column: 1; grid-row: 2; }           /* qty */
+#sheets .sheet table.items tr.m-row > td:nth-child(4) { grid-column: 2; grid-row: 2; }           /* rate */
+#sheets .sheet table.items tr.m-row > td:nth-child(10) { grid-column: 3; grid-row: 2; font-weight: 700; text-align: right !important; align-self: end; } /* total */
+#sheets .sheet table.items tr.m-row > td:nth-child(6) { display: none; }                         /* print-only quantity */
+#sheets .sheet table.items tr.m-row > td:nth-child(3), #sheets .sheet table.items tr.m-row > td:nth-child(7), #sheets .sheet table.items tr.m-row > td:nth-child(8), #sheets .sheet table.items tr.m-row > td:nth-child(9) { display: none; grid-row: auto; }
+#sheets .sheet table.items tr.m-row.m-open > td:nth-child(3), #sheets .sheet table.items tr.m-row.m-open > td:nth-child(7), #sheets .sheet table.items tr.m-row.m-open > td:nth-child(8), #sheets .sheet table.items tr.m-row.m-open > td:nth-child(9) { display: block; }
+#sheets .sheet table.items tr.m-row.m-open > td:nth-child(3) { grid-column: 1; }
+#sheets .sheet table.items tr.m-row.m-open > td:nth-child(7) { grid-column: 2; }
+#sheets .sheet table.items tr.m-row.m-open > td:nth-child(8) { grid-column: 3; }
+#sheets .sheet table.items tr.m-row.m-open > td:nth-child(9) { grid-column: 1 / -1; font-size: 12.5px; color: #475569; }
+  /* small labels above the boxes */
+#sheets .sheet table.items tr.m-row > td:nth-child(5)::before, #sheets .sheet table.items tr.m-row > td:nth-child(4)::before, #sheets .sheet table.items tr.m-row > td:nth-child(10)::before,
+#sheets .sheet table.items tr.m-row > td:nth-child(3)::before, #sheets .sheet table.items tr.m-row > td:nth-child(7)::before, #sheets .sheet table.items tr.m-row > td:nth-child(8)::before, #sheets .sheet table.items tr.m-row > td:nth-child(9)::before { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #64748b; margin-bottom: 2px; }
+#sheets .sheet table.items tr.m-row > td:nth-child(5)::before { content: "Qty"; }
+#sheets .sheet table.items tr.m-row > td:nth-child(4)::before { content: "Rate"; }
+#sheets .sheet table.items tr.m-row > td:nth-child(10)::before { content: "Total"; }
+#sheets .sheet table.items tr.m-row > td:nth-child(3)::before { content: "HSN/SAC"; }
+#sheets .sheet table.items tr.m-row > td:nth-child(7)::before { content: "Value"; }
+#sheets .sheet table.items tr.m-row > td:nth-child(8)::before { content: "GST %"; }
+#sheets .sheet table.items tr.m-row > td:nth-child(9)::before { content: "Tax"; }
+#sheets .sheet table.items .inline-item-field, #sheets .sheet table.items .inline-gst, #sheets .sheet table.items .item-search-input, #sheets .sheet table.items .quantity-unit-toggle { width: 100% !important; min-width: 0; }
+#sheets .sheet table.items .inline-money-field { display: flex; width: 100%; }
+#sheets .sheet .item-picker-wrap { width: 100%; }
+#sheets .sheet table.items tr.m-row > td.item-name-cell { grid-column: 1 / -1 !important; position: static !important; padding-right: 142px !important; }
+  #sheets .sheet table.items tr.m-row > td.item-name-cell .m-toggle { position: absolute; top: 10px; right: 10px; margin: 0; height: 32px; width: 80px; justify-content: center; border-radius: 4px; padding: 0 8px; }
+  #sheets .sheet table.items tr.m-row > td:nth-child(11) { position: absolute !important; top: 10px; right: 98px; grid-column: auto !important; grid-row: auto !important; }
+  #sheets .sheet table.items tr.m-row > td:nth-child(11) .inline-del { height: 32px; min-width: 44px; }
+#sheets .sheet .items-footer { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+#sheets .sheet .items-footer .inline-add-row { width: 100%; justify-content: center; padding: 10px; }
+#sheets .sheet .items-footer .wm-picker, #sheets .sheet .items-footer .inline-footer-right { width: 100%; }
+#sheets .sheet .inline-footer-right { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+#sheets .sheet .inline-discount { flex-wrap: wrap; }
+
+  /* totals */
+#sheets .sheet .blk.tot { display: grid !important; grid-template-columns: 1fr auto !important; align-items: center; gap: 4px 12px; }
+#sheets .sheet .blk.tot > .m-toggle { grid-column: 1 / -1; justify-self: start; }
+#sheets .sheet .blk.tot .m-tax-rows { display: none; }
+#sheets .sheet.mo-tax .blk.tot .m-tax-rows { display: contents; }
+#sheets .sheet .blk.tot .big { font-size: 20px; }
+#sheets .sheet .blk.words { text-align: left !important; }
+}
+@media screen and (max-width: 767px) {
+  #sheets .sheet .mn-meta { grid-template-columns: 1fr !important; }
+  #sheets .sheet input.inv-date-input, #sheets .sheet .inv-date-cell { max-width: 100%; min-width: 0; }
+}
+@media screen and (max-width: 767px) { #sheets .sheet .item-dropdown { width: calc(100vw - 64px) !important; max-width: none !important; } }
+
+@media screen and (max-width: 767px) {
+  #sheets .sheet:not(.mo-wm) .wm-picker { display: none; }
+  #sheets .sheet .inline-discount { align-items: center; }
+  #sheets .sheet .inline-discount .m-toggle { margin: 0 0 0 4px; }
+}
+@media screen and (max-width: 767px) {
+  #sheets .sheet .inline-discount { flex-wrap: nowrap !important; gap: 6px; }
+  #sheets .sheet .inline-discount input[data-disc="value"] { width: 64px !important; min-width: 0; }
+  #sheets .sheet .inline-discount .inline-discount-title { font-size: 13px; }
+  #sheets .sheet .inline-discount .m-toggle { padding: 4px 8px; font-size: 12px; white-space: nowrap; margin-left: auto; }
+}
+@media screen and (max-width: 767px) {
+  #sheets .sheet .mn-cols, #sheets .sheet .lm-bottom, #sheets .sheet .cp-cards, #sheets .sheet .le-cards { display: grid !important; grid-template-columns: 1fr !important; gap: 8px; }
+  #sheets .sheet .signbox img, #sheets .sheet .m-bottom img { max-width: 100% !important; height: auto; }
+}
+
+@media screen and (max-width: 767px) {
+  /* seller card: "Invoice details" sits at the top right */
+  #sheets .sheet.tpl-classic .cell:has(> .m-seller) { position: relative; }
+  #sheets .sheet .m-seller > .comp-name { display: block; max-width: 100%; }
+  #sheets .sheet.tpl-classic .m-seller > .m-toggle { position: absolute; top: 8px; right: 8px; margin: 0; z-index: 1; }
+  /* customer card: picker + Edit + Clear on one line, Add Customer + Shipping address on the next */
+  #sheets .sheet .cust-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 6px; }
+  #sheets .sheet .cust-header > .cust-heading { flex: 0 0 100%; order: 0; }
+  #sheets .sheet .cust-header > .cust-picker-wrap { flex: 1 1 0; min-width: 110px; order: 1; }
+  #sheets .sheet .cust-header > .eb { order: 2; flex: 0 0 auto; margin: 0 !important; }
+  #sheets .sheet .cust-header > .cust-clear-btn { order: 3; flex: 0 0 auto; margin: 0 !important; }
+  #sheets .sheet .cust-header::after { content: ""; flex: 0 0 100%; height: 0; order: 4; }
+  #sheets .sheet .cust-header > .cust-add-btn { order: 5; flex: 0 0 auto; margin: 0 !important; }
+  #sheets .sheet .cust-header > .m-toggle { order: 6; flex: 0 0 auto; margin: 0; }
+}
+@media screen and (max-width: 767px) {
+  /* every button in the customer card is as tall as the customer box; Shipping address goes to the right */
+  #sheets .sheet .cust-header > .eb, #sheets .sheet .cust-header > .cust-clear-btn, #sheets .sheet .cust-header > .cust-add-btn, #sheets .sheet .cust-header > .m-toggle { height: 34px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; padding-top: 0; padding-bottom: 0; line-height: 1; }
+  #sheets .sheet .cust-header > .m-toggle { margin-left: auto; }
+}
+@media screen and (max-width: 767px) {
+  #sheets .sheet .cust-header > .eb, #sheets .sheet .cust-header > .cust-clear-btn, #sheets .sheet .cust-header > .cust-add-btn, #sheets .sheet .cust-header > .m-toggle { min-height: 0 !important; gap: 6px; }
+}
+
+@media screen and (max-width: 767px) {
+  #sheets .sheet .cust-header > .cust-add-btn { display: none !important; }
+  /* Shipping address button on the left of the price list box */
+  #sheets .sheet .price-list-corner { display: flex !important; align-items: center; justify-content: space-between; gap: 8px; position: static !important; margin-top: 8px; }
+  #sheets .sheet .price-list-corner > .m-toggle { height: 34px; box-sizing: border-box; margin: 0; padding-top: 0; padding-bottom: 0; min-height: 0 !important; }
+  #sheets .sheet .price-list-corner > select { margin-left: auto; height: 34px; }
+}
+@media screen and (max-width: 767px) { #sheets .sheet table.items tr.m-row > td.item-name-cell .m-toggle { border-radius: 999px; } }
+@media screen and (max-width: 767px) { #sheets .sheet table.items .quantity-unit-toggle { height: 32px; min-height: 32px; box-sizing: border-box; } }
+@media screen and (max-width: 767px) {
+  /* Totals: one tidy card. Tax rows (when open) are label on the left, amount on the right; the Total stands out at the bottom. */
+  #sheets .sheet .blk.tot { display: grid !important; grid-template-columns: 1fr auto !important; align-items: center; gap: 8px 12px !important; margin: 12px 0 8px !important; padding: 10px 14px !important; border: 1px solid #dbe3ec !important; border-radius: 12px !important; background: #f8fafc !important; }
+  #sheets .sheet .blk.tot > div, #sheets .sheet .blk.tot .m-tax-rows > div { border: 0 !important; padding: 0 !important; margin: 0 !important; background: transparent !important; text-align: left !important; font-size: 14px; color: #475569; width: auto !important; }
+  #sheets .sheet .blk.tot .m-tax-rows > div:nth-child(even) { text-align: right !important; color: #0f172a; font-weight: 600; font-variant-numeric: tabular-nums; }
+  #sheets .sheet .blk.tot > .m-toggle { grid-column: 1 / -1; justify-self: start; margin: 0 0 2px; }
+  #sheets .sheet .blk.tot > .m-tot-label { padding-top: 10px !important; margin-top: 2px !important; border-top: 1px solid #cbd5e1 !important; font-size: 16px; font-weight: 700; color: #0f172a; }
+  #sheets .sheet .blk.tot > div.big { padding-top: 10px !important; margin-top: 2px !important; border-top: 1px solid #cbd5e1 !important; text-align: right !important; font-size: 22px !important; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; }
+  #sheets .sheet .blk.words { margin: 8px 2px 0 !important; padding: 0 !important; border: 0 !important; font-size: 13px; color: #475569; }
+}
+@media screen and (max-width: 767px) { #sheets .sheet .blk.tot { column-gap: 0 !important; } #sheets .sheet .blk.tot > .m-tot-label, #sheets .sheet .blk.tot > div.big { margin-top: 4px !important; } }
+@media screen and (max-width: 767px) { #sheets .sheet .blk.tot > .m-tot-label, #sheets .sheet .blk.tot > div.big { align-self: stretch; display: flex !important; align-items: center; } #sheets .sheet .blk.tot > div.big { justify-content: flex-end; } }
+
+.m-words { display: none; }
+@media screen and (max-width: 767px) {
+  #sheets .sheet .blk.tot > .m-words { display: block !important; grid-column: 1 / -1; margin-top: 6px !important; padding-top: 10px !important; border-top: 1px solid #cbd5e1 !important; font-size: 13px !important; line-height: 1.45; color: #475569 !important; text-align: left !important; }
+  #sheets .sheet .blk.tot > .m-words b { color: #0f172a; }
+  #sheets .sheet .blk.words { display: none !important; }
+}
+@media screen and (max-width: 767px) {
+  /* when a discount is typed, the result and the clear button join the row, so it may wrap onto a second line */
+  #sheets .sheet .inline-discount { flex-wrap: wrap !important; row-gap: 8px; max-width: 100%; }
+  #sheets .sheet .inline-discount .disc-result { font-size: 14px; white-space: nowrap; }
+  #sheets .sheet .inline-discount .m-toggle { margin-left: auto; }
+}
+@media screen and (max-width: 767px) {
+  .invoice-body-buttons > .topbar-btn, .invoice-body-buttons .dropdown > .topbar-btn { font-size: 16px !important; font-weight: 600; min-height: 46px; }
+  .invoice-body-buttons .topbar-btn svg { width: 16px; height: 16px; }
+}
+@media screen and (max-width: 767px) {
+  .invoice-body-buttons > .topbar-btn, .invoice-body-buttons .dropdown > .topbar-btn { font-size: 14.5px !important; min-height: 42px; }
+  .invoice-body-buttons .topbar-btn svg { width: 15px; height: 15px; }
+}
+@media screen and (max-width: 767px) {
+  /* card buttons (View / Share / Delete, Edit / Delete, Use / Edit ...): equal width, easy to tap */
+  table.mobile-cards td.directory-row-actions, table.mobile-cards td.directory-row-actions .invoice-archive-actions { display: grid !important; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; width: 100%; }
+  table.mobile-cards td.directory-row-actions .btn { width: 100%; height: 40px; min-height: 40px; padding: 0 8px; font-size: 14px; font-weight: 600; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; }
+  table.mobile-cards td.directory-row-actions .btn-outline-secondary { border-color: #cbd5e1; color: #334155; }
+}
+@media screen and (max-width: 767px) {
+  /* Reports: Period label on the left, the dropdown on the right */
+  .archive-filter-bar:has(#reportRangeSelect) { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .archive-filter-bar:has(#reportRangeSelect) .archive-range-select { margin-left: auto; width: auto; min-width: 190px; }
+}
+@media screen and (max-width: 767px) {
+  /* Customer / Item list: filter box (narrow) and search box on one line */
+  .customer-directory-tools:has(select) { display: flex !important; flex-wrap: nowrap !important; align-items: center; gap: 8px; width: 100%; }
+  .customer-directory-tools:has(select) > select, .customer-directory-tools:has(select) > .form-select { flex: 0 0 134px; width: 134px !important; min-width: 0; padding-left: 8px; padding-right: 24px; font-size: 14px; text-overflow: ellipsis; }
+  .customer-directory-tools:has(select) .directory-search-control { flex: 1 1 0; width: auto !important; min-width: 0; }
+  .customer-directory-tools:has(select) .directory-search-control input { min-width: 0; }
+}
+@media screen and (max-width: 767px) {
+  /* list footer: "Rows per page" and the page buttons share one line */
+  .directory-table-controls { display: flex !important; flex-direction: row !important; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 10px; width: 100%; }
+  .directory-table-controls .directory-page-size-label { display: inline-flex !important; align-items: center; gap: 6px; margin: 0 !important; font-size: 13px; white-space: nowrap; }
+  .directory-table-controls .directory-page-size-label .form-select { width: 66px !important; min-width: 0; padding-left: 8px; padding-right: 22px; font-size: 14px; }
+  .directory-table-controls .pagination { margin: 0; }
+  .directory-table-controls .pagination .page-link { min-width: 34px; padding: 6px 9px; text-align: center; }
+  .directory-table-footer { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+}
+@media screen and (max-width: 767px) {
+  /* Folded "Add a ... " card: a single tidy row. The CSV import button appears once the card is opened. */
+  .customer-add-form:not(.is-open) { padding-bottom: 0 !important; }
+  .customer-add-form:not(.is-open) > .customer-directory-heading { margin-bottom: 0 !important; padding: 14px !important; }
+  .customer-add-form:not(.is-open) .csv-import-toggle { display: none !important; }
+  .customer-add-form > .customer-directory-heading > strong { font-size: 15px; }
+  .customer-add-form.is-open > .customer-directory-heading .csv-import-toggle { min-height: 32px; padding: 4px 10px; font-size: 13px; }
+}
+@media screen and (max-width: 767px) {
+  /* the profile in use: the whole card is pale green, not just the cells inside it */
+  table.mobile-cards > tbody > tr.profile-active-row { background: #f0fdf4 !important; border-color: #86efac !important; }
+  .dashboard-card table.mobile-cards .profile-active-row > *, table.mobile-cards .profile-active-row > * { background: transparent !important; color: inherit !important; }
+}
+@media screen and (max-width: 767px) {
+  /* the same text sizes in every list card (the item list had its own smaller sizes) */
+  table.mobile-cards td, table.mobile-cards tbody th { font-size: 14px !important; }
+  table.mobile-cards td:first-of-type, table.mobile-cards td:first-of-type a, table.mobile-cards td:first-of-type button, table.mobile-cards td:first-of-type .item-name-link { font-size: 16px !important; font-weight: 700 !important; line-height: 1.3; }
+  table.mobile-cards td.directory-row-actions .btn { font-size: 14px !important; font-weight: 600 !important; }
+  table.mobile-cards td::before, table.mobile-cards th[data-label]::before { font-size: 12.5px !important; }
+}
+@media screen and (max-width: 767px) {
+  /* value (and a badge such as "Low") stay together on the right, the label on the left */
+  table.mobile-cards td[data-label]:not(:first-of-type):not(.directory-row-actions) { justify-content: flex-end !important; gap: 8px; }
+  table.mobile-cards td[data-label]:not(:first-of-type):not(.directory-row-actions)::before { margin-right: auto; }
+}

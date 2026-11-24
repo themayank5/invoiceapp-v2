@@ -4091,8 +4091,8 @@ function save() {
     badge.textContent = String(count);
     badge.hidden = !count;
   }
-  function addToTrash(kind, label, data, index = null) {
-    const entry = { index, id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`, kind, label, deletedAt: Date.now(), data: structuredClone(data) };
+  function addToTrash(kind, label, data, index = null, batch = null) {
+    const entry = { index, batch, id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`, kind, label, deletedAt: Date.now(), data: structuredClone(data) };
     saveTrash([...loadTrash(), entry]);
     updateTrashBadge();
     return entry;
@@ -4134,6 +4134,43 @@ function save() {
     }
   }
 
+  // Brings everything back at once, in the reverse order it was deleted, so each item returns to its own place.
+  async function restoreAllFromTrash() {
+    const all = loadTrash();
+    if (!all.length) return;
+    const groups = new Map();
+    all.forEach(entry => { const key = entry.batch || entry.id; (groups.get(key) || groups.set(key, []).get(key)).push(entry); });
+    const ordered = [...groups.values()]
+      .sort((a, b) => Math.max(...b.map(e => e.deletedAt)) - Math.max(...a.map(e => e.deletedAt)))
+      .flatMap(group => group.sort((a, b) => (a.index ?? 1e9) - (b.index ?? 1e9)));
+    let restored = 0, skipped = 0;
+    const done = [];
+    try {
+      for (const [kind, isThere, put] of [
+        ['invoice', (list, d) => d.invoiceNo && list.some(i => i.invoiceNo === d.invoiceNo && i.status === d.status), list => persistInvoiceArchive(list)],
+        ['customer', (list, d) => list.some(c => customerDuplicateKey(c) === customerDuplicateKey(d)), list => persistCustomerList(list, true)],
+        ['item', (list, d) => list.some(i => itemNameKey(i.name) === itemNameKey(d.name)), list => persistCatalogItems(list, true)]
+      ]) {
+        let list = kind === 'invoice' ? archivedInvoices : kind === 'customer' ? importedCustomers : catalogItems;
+        let changed = false;
+        for (const entry of ordered.filter(e => e.kind === kind)) {
+          if (isThere(list, entry.data)) { skipped++; continue; }
+          list = insertAt(list, entry.data, entry.index);
+          done.push(entry.id); restored++; changed = true;
+        }
+        if (changed) await put(list);
+      }
+    } catch (error) {
+      console.error('Could not restore everything from the trash.', error);
+      showToast(error.message || 'Could not restore everything.', { type: 'error' });
+    }
+    saveTrash(loadTrash().filter(entry => !done.includes(entry.id)));
+    updateTrashBadge();
+    showToast(`${restored} item${restored === 1 ? '' : 's'} restored${skipped ? `, ${skipped} skipped because they already exist` : ''}.`, { type: restored ? 'success' : 'info' });
+    render();
+    openEditor('trash');
+  }
+
   function trashDetail(entry) {
     const d = entry.data;
     if (entry.kind === 'invoice') return [d.customerName, rs(d.total), d.invoiceDate ? dt(d.invoiceDate) : ''].filter(Boolean).join(' · ');
@@ -4159,7 +4196,7 @@ function save() {
     }).join('') : `<tr><td colspan="4" class="customer-directory-empty">Nothing here. Deleted invoices, customers and items stay in the trash for ${TRASH_DAYS} days so you can bring them back.</td></tr>`;
     return `<div class="invoice-archive-heading">
         <div><strong>Trash</strong><div class="form-text">Deleted things stay here for ${TRASH_DAYS} days. This list is kept in this browser. Restoring puts the item back in your data folder.</div></div>
-        <div class="customer-directory-tools"><button type="button" class="btn btn-sm btn-outline-danger" data-trash-empty ${all.length ? '' : 'disabled'}>Empty trash</button></div>
+        <div class="customer-directory-tools"><button type="button" class="btn btn-sm btn-outline-primary" data-trash-restore-all ${all.length ? '' : 'disabled'}>Restore all trash</button><button type="button" class="btn btn-sm btn-outline-danger" data-trash-empty ${all.length ? '' : 'disabled'}>Empty all trash</button></div>
       </div>
       <div class="archive-tabs" role="tablist" aria-label="Deleted items">${tabs}</div>
       <div class="customer-directory-table-wrap"><table class="table table-sm table-striped table-hover table-bordered align-middle">
@@ -4278,6 +4315,24 @@ function save() {
     }
   }
 
+  // What Remove sample data would delete right now, so the question can say it plainly.
+  function sampleCounts() {
+    const sample = sampleRecords();
+    const customerKeys = new Set(sample.customers.map(customerDuplicateKey));
+    const itemKeys = new Set(sample.items.map(item => itemNameKey(item.name)));
+    const counts = {
+      customers: importedCustomers.filter(c => customerKeys.has(customerDuplicateKey(c))).length,
+      items: catalogItems.filter(item => itemKeys.has(itemNameKey(item.name))).length,
+      invoices: archivedInvoices.filter(invoice => invoice.snapshot?.sample).length
+    };
+    for (const kind of ['seller', 'bank']) {
+      const ids = new Set(sample[kind].map(p => profileIdentity(kind, p)));
+      counts[kind] = profileList(kind).filter(p => ids.has(profileIdentity(kind, p))).length;
+    }
+    const parts = [[counts.customers, 'customers'], [counts.items, 'items'], [counts.invoices, 'invoices and quotations'], [counts.seller, 'sellers'], [counts.bank, 'bank entries']].filter(([n]) => n);
+    return { counts, text: parts.map(([n, label]) => `${n} ${label}`).join(', '), total: parts.reduce((a, [n]) => a + n, 0) };
+  }
+
   async function removeSampleData() {
     if (!databaseConnectedForSample()) { showCsvHelp('all', 'Connect your database folder first.'); return false; }
     try {
@@ -4299,6 +4354,10 @@ function save() {
       const keepCustomers = importedCustomers.filter(c => !customerKeys.has(customerDuplicateKey(c)));
       const keepItems = catalogItems.filter(item => !itemKeys.has(itemNameKey(item.name)));
       removed.customers = importedCustomers.length - keepCustomers.length; removed.items = catalogItems.length - keepItems.length;
+      // Everything removed goes to the Trash first, so it can still be brought back.
+      const batch = `sample-${Date.now()}`;   // one removal: its entries go back by their original positions
+      importedCustomers.forEach((c, index) => { if (customerKeys.has(customerDuplicateKey(c))) addToTrash('customer', c.name || 'Customer', c, index, batch); });
+      catalogItems.forEach((item, index) => { if (itemKeys.has(itemNameKey(item.name))) addToTrash('item', item.name || 'Item', item, index, batch); });
       if (removed.customers) await persistCustomerList(keepCustomers, true);
       if (removed.items) await persistCatalogItems(keepItems, true);
       for (const kind of ['seller', 'bank', 'terms']) {
@@ -5332,6 +5391,21 @@ function calc() {
 }
 
 /* ---------- invoice markup ---------- */
+// Phone layout of the invoice: which folded sections are open. Kept here so editing does not close them again.
+const mobileOpen = new Set();
+const mobileRowKey = key => /^row:/.test(key);
+document.addEventListener('click', e => {
+  const toggle = e.target.closest('[data-mtoggle]');
+  if (!toggle) return;
+  const key = toggle.dataset.mtoggle;
+  if (mobileOpen.has(key)) mobileOpen.delete(key);
+  else {
+    if (mobileRowKey(key)) [...mobileOpen].filter(mobileRowKey).forEach(k => mobileOpen.delete(k));   // one item open at a time
+    mobileOpen.add(key);
+  }
+  render();
+});
+
 function sheetHTML(label) {
   label = L(label);
   const C = calc(), s = S.seller, m = S.meta, c = S.customer, b = S.bank;
@@ -5399,11 +5473,12 @@ function sheetHTML(label) {
 
   const st = invoiceStyle();
   const smallPaper = document.body.classList.contains('printing') && ['a5', 'a4half'].includes(invoicePaper());   // smaller pages use the compact layout
-  const sheetClasses = ['sheet', `tpl-${st.template}`, st.compact || smallPaper ? 'is-compact' : '', st.showLogo ? '' : 'no-logo', st.accent.toLowerCase() === '#000000' ? '' : 'accented', st.fontSize !== 'md' ? `fs-${st.fontSize}` : '', st.logoPosition === 'left' ? 'logo-left' : ''].filter(Boolean).join(' ');
+  const sheetClasses = ['sheet', `tpl-${st.template}`, st.compact || smallPaper ? 'is-compact' : '', st.showLogo ? '' : 'no-logo', st.accent.toLowerCase() === '#000000' ? '' : 'accented', st.fontSize !== 'md' ? `fs-${st.fontSize}` : '', st.logoPosition === 'left' ? 'logo-left' : '', ...['meta', 'ship', 'tax', 'bottom', 'wm'].filter(k => mobileOpen.has(k)).map(k => 'mo-' + k)].filter(Boolean).join(' ');
 
   /* ---- Shared pieces: every template shows the same content; a template only arranges these differently. ---- */
-  const sellerInfo = `<div><b class="comp-name">${esc(s.name)}</b><br><b>GSTIN:</b> ${esc(s.gstin)}<br><b>${L('Address:')}</b> <span class="address-text">${ml(s.addr)}</span><br><b>${L('Mobile:')}</b> ${esc(s.mobile)}<br><b>${L('Email:')}</b> ${esc(s.email)}</div>`;
-  const sellerElegant = `<div class="le-seller"><b class="comp-name">${esc(s.name)}</b><div class="le-contact">${[s.addr ? `<span class="address-text">${ml(s.addr)}</span>` : '', s.mobile ? `${L('Mobile:')} ${esc(s.mobile)}` : '', s.email ? `${L('Email:')} ${esc(s.email)}` : ''].filter(Boolean).join('<span class="le-dot">•</span>')}</div>${s.gstin ? `<div class="le-gstin">GSTIN: ${esc(s.gstin)}</div>` : ''}</div>`;
+  const mToggle = (key, text) => `<button type="button" class="m-toggle no-print" data-mtoggle="${key}" aria-expanded="${mobileOpen.has(key)}">${text} <span class="m-chev" aria-hidden="true">▾</span></button>`;
+  const sellerInfo = `<div class="m-seller"><b class="comp-name">${esc(s.name)}</b>${mToggle('meta', 'Invoice details')}<span class="m-more"><br><b>GSTIN:</b> ${esc(s.gstin)}<br><b>${L('Address:')}</b> <span class="address-text">${ml(s.addr)}</span><br><b>${L('Mobile:')}</b> ${esc(s.mobile)}<br><b>${L('Email:')}</b> ${esc(s.email)}</span></div>`;
+  const sellerElegant = `<div class="le-seller m-seller"><b class="comp-name">${esc(s.name)}</b>${mToggle('meta', 'Invoice details')}<span class="m-more"><div class="le-contact">${[s.addr ? `<span class="address-text">${ml(s.addr)}</span>` : '', s.mobile ? `${L('Mobile:')} ${esc(s.mobile)}` : '', s.email ? `${L('Email:')} ${esc(s.email)}` : ''].filter(Boolean).join('<span class="le-dot">•</span>')}</div>${s.gstin ? `<div class="le-gstin">GSTIN: ${esc(s.gstin)}</div>` : ''}</span></div>`;
   const logoDiv = !st.showLogo ? '' : `<div class="logo">${imageSrc(s.logo) ? `<img src="${esc(imageSrc(s.logo))}" alt="Logo">` : ''}</div>`;
   const dateInput = (l, v, key) => `<input type="date" class="inv-date-input no-print" value="${v || ''}" data-meta="${key}" aria-label="${l}" title="Select ${l.toLowerCase()}"><span class="inv-date-text">${dt(v)}</span>`;
   const quote = isQuotation();
@@ -5438,7 +5513,7 @@ function sheetHTML(label) {
       <span class="cust-name-print">${esc(c.name)}</span>
       <b class="cust-section-title cust-address-label">${L('Address:')}</b>
       <span class="cust-address cust-address-value fw-light"><span class="address-text">${ml(c.billing)}</span>${c.phone ? `<br><b>${L('Phone:')}</b> ` + esc(c.phone) : ''}${c.email ? `<br><b>${L('Email:')}</b> ` + esc(c.email) : ''}${c.gstin ? '<br><b>GSTIN:</b> ' + esc(c.gstin) : ''}</span>
-    <div class="price-list-corner no-print"><select class="form-select form-select-sm price-list-select no-print" data-pricelist="1" aria-label="Price list for this invoice" title="Price list: decides which rate is used when you pick items">${PRICE_LISTS.map(([value, label]) => `<option value="${value}" ${value === normalizePriceList(c.priceList) ? 'selected' : ''}>${label}</option>`).join('')}</select></div>`;
+    <div class="price-list-corner no-print">${quote ? '' : mToggle('ship', 'Shipping address')}<select class="form-select form-select-sm price-list-select no-print" data-pricelist="1" aria-label="Price list for this invoice" title="Price list: decides which rate is used when you pick items">${PRICE_LISTS.map(([value, label]) => `<option value="${value}" ${value === normalizePriceList(c.priceList) ? 'selected' : ''}>${label}</option>`).join('')}</select></div>`;
   const shipOptions = normalizeShipAddresses(c.shippingAddresses);
   const shipSelected = c.shipSame ? -1 : shipOptions.findIndex(a => a.address === c.shipping);
   const shipPicker = shipOptions.length
@@ -5459,7 +5534,7 @@ function sheetHTML(label) {
       ${sellerInfo}
       ${logoDiv}
     </div>
-    <div class="cell p0"><div class="meta sec pt-0">${eb('meta')}
+    <div class="cell p0 m-meta-box"><div class="meta sec pt-0">${eb('meta')}
       ${metaRows}
     </div></div>
   </div>
@@ -5473,7 +5548,7 @@ function sheetHTML(label) {
       <div class="lm-brand cell">${eb('seller')}${logoDiv}${sellerInfo}</div>
       <div class="lm-title"><h1>${docTitle}</h1><span>${label}</span></div>
     </div>
-    <div class="lm-chips cell">${eb('meta')}${metaChips}</div>
+    <div class="lm-chips cell m-meta-box">${eb('meta')}${metaChips}</div>
     <div class="lm-parties ${quote ? 'single' : ''}">
       <div class="lm-party cell cust-cell">${custInner}</div>
       ${quote ? '' : `<div class="lm-party cell Shipping1">${shipInner}</div>`}
@@ -5484,7 +5559,7 @@ function sheetHTML(label) {
       <div class="mn-brand cell">${eb('seller')}${logoDiv}${sellerInfo}</div>
       <div class="mn-title">
         <h1>${docTitle}</h1><span>${label}</span>
-        <div class="mn-meta">${metaItems.map(([l, v, isDate]) => `<div class="mn-meta-row"><span>${l}</span><b class="${isDate ? 'inv-date-cell' : ''}">${v}</b></div>`).join('')}</div>
+        <div class="mn-meta m-meta-box">${metaItems.map(([l, v, isDate]) => `<div class="mn-meta-row"><span>${l}</span><b class="${isDate ? 'inv-date-cell' : ''}">${v}</b></div>`).join('')}</div>
       </div>
     </div>
     <div class="mn-parties ${quote ? 'single' : ''}">
@@ -5497,7 +5572,7 @@ function sheetHTML(label) {
       <div class="cp-brand cell">${eb('seller')}${logoDiv}${sellerInfo}</div>
       <div class="cp-doc">
         <h1>${docTitle}</h1><span>${label}</span>
-        <div class="cp-meta">${metaItems.map(([l, v, isDate]) => `<span>${l}</span><b class="${isDate ? 'inv-date-cell' : ''}">${v}</b>`).join('')}</div>
+        <div class="cp-meta m-meta-box">${metaItems.map(([l, v, isDate]) => `<span>${l}</span><b class="${isDate ? 'inv-date-cell' : ''}">${v}</b>`).join('')}</div>
       </div>
     </div>
     <div class="cp-parties ${quote ? 'single' : ''}">
@@ -5508,7 +5583,7 @@ function sheetHTML(label) {
     elegant: () => `<div class="lay-top lay-elegant-top">
     <div class="le-head cell">${eb('seller')}${logoDiv}${sellerElegant}</div>
     <div class="le-title"><div class="le-title-text"><h1>${docTitle}</h1><span>${label}</span></div></div>
-    <div class="le-chips cell">${eb('meta')}${metaChips}</div>
+    <div class="le-chips cell m-meta-box">${eb('meta')}${metaChips}</div>
     <div class="le-parties ${quote ? 'single' : ''}">
       <div class="le-party cell cust-cell">${custInner}</div>
       ${quote ? '' : `<div class="le-party cell Shipping1">${shipInner}</div>`}
@@ -5624,7 +5699,7 @@ function sheetHTML(label) {
     const valueFitsOneLine = Math.abs(r.tx) <= 10000000;
     const taxFitsOneLine = Math.abs(r.tax) <= 10000000;
     const totalFitsOneLine = Math.abs(r.amt) <= 10000000;
-    return `<tr>
+    return `<tr class="m-row${isCustomRow(i) || mobileOpen.has('row:' + i) ? ' m-open' : ''}">
     <td class="c">${i + 1}</td>
     <td class="item-name-cell">
       <span class="print-only-text"><b>${esc(r.name)}</b></span>
@@ -5648,6 +5723,7 @@ ${S.items[i].custom ? `      <div class="item-picker-wrap no-print is-custom">
         </div>
       </div>
 `}
+    ${isCustomRow(i) ? '' : mToggle('row:' + i, 'Details')}
     </td>
     <td class="c text-start">
       <input class="inline-item-field inline-hsn no-print" type="text" placeholder="${isCustomRow(i) ? 'HSN/SAC' : 'Auto'}" value="${esc(r.hsn)}" data-ihsn="${i}" ${isCustomRow(i) ? '' : 'readonly tabindex="-1"'} title="${isCustomRow(i) ? 'Type the HSN/SAC code' : 'Fetched from Item Details'}" aria-label="HSN/SAC for item ${i + 1}">
@@ -5697,15 +5773,15 @@ ${S.items[i].custom ? `      <div class="item-picker-wrap no-print is-custom">
             <path fill-rule="evenodd"
               d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
               clip-rule="evenodd" />
-          </svg></button><div class="wm-picker" role="group" aria-label="Invoice watermark" title="Stamp across the invoice. Click the selected one again to remove it."><span class="inline-discount-title">Watermark</span><span class="disc-seg wm-seg">${Object.entries(INVOICE_WATERMARKS).filter(([key]) => key !== 'draft').map(([key, w]) => `<button type="button" class="disc-seg-btn ${S.watermark === key ? 'is-active' : ''}" data-wm="${key}" aria-pressed="${S.watermark === key}">${w.label}</button>`).join('')}</span></div><div class="inline-footer-right"><div class="inline-discount" role="group" aria-label="Invoice discount"><span class="inline-discount-title">Discount</span><input type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(S.discount?.value ?? '')}" data-disc="value" aria-label="Invoice discount"><span class="disc-seg" role="group" aria-label="Discount type"><button type="button" class="disc-seg-btn ${S.discount?.type === 'amount' ? '' : 'is-active'}" data-disc-type="percent" aria-pressed="${S.discount?.type === 'amount' ? 'false' : 'true'}" aria-label="Discount in percent">%</button><button type="button" class="disc-seg-btn ${S.discount?.type === 'amount' ? 'is-active' : ''}" data-disc-type="amount" aria-pressed="${S.discount?.type === 'amount' ? 'true' : 'false'}" aria-label="Discount in rupees">₹</button></span>${S.discount?.type === 'amount' ? `<span class="disc-seg disc-basis" role="group" aria-label="Discount applies to"><button type="button" class="disc-seg-btn ${S.discount?.basis === 'final' ? '' : 'is-active'}" data-disc-basis="taxable" aria-pressed="${S.discount?.basis === 'final' ? 'false' : 'true'}" title="Taken off the amount before GST. The GST is worked out on what is left.">Before GST</button><button type="button" class="disc-seg-btn ${S.discount?.basis === 'final' ? 'is-active' : ''}" data-disc-basis="final" aria-pressed="${S.discount?.basis === 'final' ? 'true' : 'false'}" title="The customer pays this much less on the final bill, GST included.">On final amount</button></span>` : ''}${C.discount ? `<span class="disc-result ${C.discountCapped ? 'is-capped' : ''}">= ${S.discount?.type !== 'amount' ? `−${rs(C.discount)}` : S.discount?.basis === 'final' ? `−${rs(C.discount)} before GST` : `${+C.discountPercent.toFixed(2)}%`}</span>` : ''}${String(S.discount?.value ?? '') !== '' ? '<button type="button" class="disc-clear" data-disc-clear title="Clear discount" aria-label="Clear discount">✕</button>' : ''}</div><div class="inline-roundoff"><input type="checkbox" id="inlineRo" class="setting-checkbox me-1" ${S.round ? 'checked' : ''}><label for="inlineRo" title="New invoices start with whatever you last chose here">Round off total</label></div></div></div>
+          </svg></button><div class="wm-picker" role="group" aria-label="Invoice watermark" title="Stamp across the invoice. Click the selected one again to remove it."><span class="inline-discount-title">Watermark</span><span class="disc-seg wm-seg">${Object.entries(INVOICE_WATERMARKS).filter(([key]) => key !== 'draft').map(([key, w]) => `<button type="button" class="disc-seg-btn ${S.watermark === key ? 'is-active' : ''}" data-wm="${key}" aria-pressed="${S.watermark === key}">${w.label}</button>`).join('')}</span></div><div class="inline-footer-right"><div class="inline-discount" role="group" aria-label="Invoice discount"><span class="inline-discount-title">Discount</span><input type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(S.discount?.value ?? '')}" data-disc="value" aria-label="Invoice discount"><span class="disc-seg" role="group" aria-label="Discount type"><button type="button" class="disc-seg-btn ${S.discount?.type === 'amount' ? '' : 'is-active'}" data-disc-type="percent" aria-pressed="${S.discount?.type === 'amount' ? 'false' : 'true'}" aria-label="Discount in percent">%</button><button type="button" class="disc-seg-btn ${S.discount?.type === 'amount' ? 'is-active' : ''}" data-disc-type="amount" aria-pressed="${S.discount?.type === 'amount' ? 'true' : 'false'}" aria-label="Discount in rupees">₹</button></span>${S.discount?.type === 'amount' ? `<span class="disc-seg disc-basis" role="group" aria-label="Discount applies to"><button type="button" class="disc-seg-btn ${S.discount?.basis === 'final' ? '' : 'is-active'}" data-disc-basis="taxable" aria-pressed="${S.discount?.basis === 'final' ? 'false' : 'true'}" title="Taken off the amount before GST. The GST is worked out on what is left.">Before GST</button><button type="button" class="disc-seg-btn ${S.discount?.basis === 'final' ? 'is-active' : ''}" data-disc-basis="final" aria-pressed="${S.discount?.basis === 'final' ? 'true' : 'false'}" title="The customer pays this much less on the final bill, GST included.">On final amount</button></span>` : ''}${C.discount ? `<span class="disc-result ${C.discountCapped ? 'is-capped' : ''}">= ${S.discount?.type !== 'amount' ? `−${rs(C.discount)}` : S.discount?.basis === 'final' ? `−${rs(C.discount)} before GST` : `${+C.discountPercent.toFixed(2)}%`}</span>` : ''}${String(S.discount?.value ?? '') !== '' ? '<button type="button" class="disc-clear" data-disc-clear title="Clear discount" aria-label="Clear discount">✕</button>' : ''}${mToggle('wm', 'Watermark')}</div><div class="inline-roundoff"><input type="checkbox" id="inlineRo" class="setting-checkbox me-1" ${S.round ? 'checked' : ''}><label for="inlineRo" title="New invoices start with whatever you last chose here">Round off total</label></div></div></div>
   </div>
 
-  <div class="blk tot no-print">${discountRows}${row(L('Taxable Amount'), hasItems ? rs(C.taxable) : '')}${taxRows}${roundRow}<div>${L('Total')}</div><div class="big">${hasItems ? rs(C.total) : ''}</div></div>
+  <div class="blk tot no-print">${mToggle('tax', 'Tax breakdown')}<div class="m-tax-rows">${discountRows}${row(L('Taxable Amount'), hasItems ? rs(C.taxable) : '')}${taxRows}${roundRow}</div><div class="m-tot-label">${L('Total')}</div><div class="big">${hasItems ? rs(C.total) : ''}</div>${hasItems ? `<div class="m-words no-print">${L('Total amount (in words):')} <b>${totalWords(C.total)}</b></div>` : ''}</div>
   <div class="invoice-summary">
   <table class="invoice-totals print-only-totals"><tbody>${printTotals}</tbody></table>
   ${hasItems ? `<div class="blk words text-end inword"><span class="fw-light me-2">${L('Total amount (in words):')} </span>${totalWords(C.total)}</div>` : ''}
 
-  ${bottomHTML}
+  ${mToggle('bottom', 'Bank, signature &amp; terms')}<div class="m-bottom">${bottomHTML}</div>
   </div>
   <div class="foot">${L('Page')} 1 / 1 &nbsp; ${quote ? L('This is a quotation, not a tax invoice.') : L('This is a digitally signed document.')}</div>
 </section>`;
@@ -5733,6 +5809,15 @@ function renderInto(target, n = 1) {
   target.innerHTML = LABELS.slice(0, isQuotation() ? 1 : n).map(sheetHTML).join('');   // a quotation is a single copy
   $('#pm').value = S.priceMode; $('#cp').value = S.copies;
   $('#paperSel').value = invoicePaper();
+  updateInvoiceSettingsSummary();
+  if (!archivePreviewInvoice && target === $('#sheets')) {
+    const bar = $('#mTotalBar');
+    if (bar) {
+      const count = S.items.filter(item => String(item.name || '').trim()).length;
+      $('#mTotalValue').textContent = rs(calc().total);
+      $('#mTotalCount').textContent = `${count} item${count === 1 ? '' : 's'}`;
+    }
+  }
   const welcome = $('#firstRunNotice');
   const noBusiness = !archivePreviewInvoice && !String(S.seller.name || '').trim();
   const folderIsEmpty = [importedCustomers, catalogItems, archivedInvoices, sellerProfiles, bankProfiles, termsProfiles].every(list => !list.length);
@@ -6364,6 +6449,7 @@ function viewArchivedInvoice(index) {
   S = normalizeTerms(structuredClone(record.snapshot));
   renderInto($('#archivePreviewSheets'));
   updateArchivePreviewHeader(record);
+  requestAnimationFrame(() => requestAnimationFrame(fitInvoicePreview));
   const drawer = $('#invoicePreviewDrawer');
   drawer.inert = false;
   drawer.classList.remove('is-editing');
@@ -6773,6 +6859,19 @@ async function startSampleMode() {
   render();
 }
 
+
+// Asks before removing the sample data, and says exactly what will go.
+function askToRemoveSample({ title, confirmLabel, then }) {
+  let info;
+  try { info = sampleCounts(); } catch (error) { showToast(error.message, { type: 'error' }); return; }
+  if (!info.total) { showToast('No sample data was found in your folder.', { type: 'info' }); if (then) then(); return; }
+  confirmDestructiveAction({
+    title, confirmLabel,
+    message: `This will remove ${info.text}. They match the example data, even if you added them yourself. Removed customers and items go to the Trash for 30 days. Your other data is kept.`,
+    action: async () => { await removeSampleData(); if (then) then(); }
+  });
+}
+
 document.addEventListener('click', async e => {
   const modal = e.target.closest('#onboardModal');
   if (modal) {
@@ -6801,17 +6900,11 @@ document.addEventListener('click', async e => {
   if (e.target.closest('#btnFirstRunSample')) { openOnboarding('start'); return; }
   if (e.target.closest('#btnMissingBusiness')) { openOnboarding('business'); return; }
   if (e.target.closest('#btnSampleSetup')) {
-    confirmDestructiveAction({
-      title: 'Start your own setup?', message: 'The sample data will be removed first, so you start clean. Your own data is kept.',
-      confirmLabel: 'Remove sample and start', action: async () => { await removeSampleData(); openOnboarding('business'); }
-    });
+    askToRemoveSample({ title: 'Start your own setup?', confirmLabel: 'Remove sample and start', then: () => openOnboarding('business') });
     return;
   }
   if (e.target.closest('#btnSampleRemove')) {
-    confirmDestructiveAction({
-      title: 'Remove the sample data?', message: 'The example customers, items, invoices, sellers and bank entries that are still unchanged will be removed. Your own data is kept.',
-      confirmLabel: 'Remove sample data', action: () => removeSampleData()
-    });
+    askToRemoveSample({ title: 'Remove the sample data?', confirmLabel: 'Remove sample data' });
   }
 });
 
@@ -7995,9 +8088,10 @@ $('#edBody').addEventListener('click', e => {
     });
     return;
   }
+  if (t.closest('[data-trash-restore-all]')) { restoreAllFromTrash(); return; }
   if (t.closest('[data-trash-empty]')) {
     confirmDestructiveAction({
-      title: 'Empty the trash?', message: 'Everything in the trash will be deleted for good. It cannot be brought back.', confirmLabel: 'Empty trash',
+      title: 'Empty all trash?', message: 'Everything in the trash will be deleted for good. It cannot be brought back.', confirmLabel: 'Empty all trash',
       action: () => { saveTrash([]); updateTrashBadge(); openEditor('trash'); }
     });
   }
@@ -8005,12 +8099,7 @@ $('#edBody').addEventListener('click', e => {
 
 $('#edBody').addEventListener('click', e => {
   if (e.target.closest('[data-sample-load]')) loadSampleData();
-  else if (e.target.closest('[data-sample-remove]')) {
-    confirmDestructiveAction({
-      title: 'Remove the sample data?', message: 'The example customers, items, sellers and bank entries that are still unchanged will be removed. Your own data is kept.',
-      confirmLabel: 'Remove sample data', action: () => removeSampleData()
-    });
-  }
+  else if (e.target.closest('[data-sample-remove]')) askToRemoveSample({ title: 'Remove the sample data?', confirmLabel: 'Remove sample data' });
 });
 
 $('#invoiceCustomerForm').addEventListener('change', e => {
@@ -8806,6 +8895,72 @@ restoreCsvConnection().finally(() => {
 });
 
 
+
+/* ---------- phones and tablets ---------- */
+// Tables turn into stacked cards on narrow screens. Each cell is labelled with its column heading (CSS shows the label).
+function labelTableCells(root = document) {
+  root.querySelectorAll('table').forEach(table => {
+    const heads = [...table.querySelectorAll('thead tr:last-child > *')];
+    if (!heads.length || table.closest('.sheet, #sheets, #archivePreviewSheets')) return;
+    const labels = heads.map(th => th.textContent.replace(/[⇅↕⇵▲▼↑↓]/g, '').replace(/\s+/g, ' ').trim());
+    table.classList.add('mobile-cards');
+    table.querySelectorAll('tbody tr, tfoot tr').forEach(row => {
+      [...row.children].forEach((cell, index) => {
+        if (cell.colSpan > 1) return;
+        const label = labels[index] || '';
+        if (cell.dataset.label !== label) cell.dataset.label = label;
+      });
+    });
+  });
+}
+let labelTablesTimer = 0;
+function scheduleLabelTables() {
+  cancelAnimationFrame(labelTablesTimer);
+  labelTablesTimer = requestAnimationFrame(() => labelTableCells($('#edBody') || document));
+}
+if (typeof MutationObserver === 'function') {
+  const watch = new MutationObserver(scheduleLabelTables);
+  [$('#edBody'), $('#invoicePreviewDrawer')].forEach(node => { if (node) watch.observe(node, { childList: true, subtree: true }); });
+  scheduleLabelTables();
+}
+
+// On a phone the invoice settings (price mode, copies, paper, quotation) fold into one bar that says what is chosen.
+function updateInvoiceSettingsSummary() {
+  const out = $('#invoiceSettingsSummary');
+  if (!out) return;
+  const copies = +S.copies || 1;
+  const paper = $('#paperSel')?.selectedOptions?.[0]?.textContent || '';
+  out.textContent = [isQuotation() ? 'Quotation' : '', S.priceMode === 'incl' ? 'GST included' : 'GST on top', `${copies} ${copies === 1 ? 'copy' : 'copies'}`, paper.replace(/\s*\(.*\)/, '')].filter(Boolean).join(' · ');
+}
+document.addEventListener('click', e => {
+  const toggle = e.target.closest('#invoiceSettingsToggle');
+  if (!toggle) return;
+  const bar = toggle.closest('.invoice-body-actions');
+  const open = bar.classList.toggle('settings-open');
+  toggle.setAttribute('aria-expanded', String(open));
+});
+document.addEventListener('change', e => { if (e.target.closest?.('.invoice-body-settings')) updateInvoiceSettingsSummary(); });
+
+// On a phone the "Add a customer / item / profile" forms start folded away. Tap the heading to open one.
+document.addEventListener('click', e => {
+  const heading = e.target.closest('.customer-add-form > .customer-directory-heading');
+  if (!heading || e.target.closest('button') || window.innerWidth >= 768) return;
+  heading.closest('.customer-add-form').classList.toggle('is-open');
+});
+
+// The invoice is wide (it is a printed page). In the preview window on a phone it is shrunk to fit the screen. Pinch to zoom in.
+function fitInvoicePreview() {
+  const holder = $('#archivePreviewSheets');
+  if (!holder) return;
+  holder.querySelectorAll('.sheet').forEach(sheet => { sheet.style.zoom = ''; });
+  if (window.innerWidth >= 992 || archivePreviewEditing) return;
+  holder.querySelectorAll('.sheet').forEach(sheet => {
+    const available = holder.clientWidth - 8;
+    if (sheet.offsetWidth > available && available > 0) sheet.style.zoom = String(Math.max(0.3, available / sheet.offsetWidth));
+  });
+}
+window.addEventListener('resize', () => { fitInvoicePreview(); });
+
 /* ---------- responsive sidebar (small screens) ---------- */
 function setSidebarOpen(open) {
   document.body.classList.toggle('sidebar-open', open);
@@ -8928,26 +9083,25 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   });
 }
 let installPromptEvent = null;
+const setInstallButtons = visible => document.querySelectorAll('[data-app-install]').forEach(b => { b.hidden = !visible; });
 window.addEventListener('beforeinstallprompt', event => {
   event.preventDefault();
   installPromptEvent = event;
-  const button = $('#btnInstallApp');
-  if (button) button.hidden = false;
+  setInstallButtons(true);
 });
 window.addEventListener('appinstalled', () => {
   installPromptEvent = null;
-  const button = $('#btnInstallApp');
-  if (button) button.hidden = true;
+  setInstallButtons(false);
   showToast('InvoiceGen is installed. Open it from your desktop or Start menu, then use Connect Database to pick your data folder.', { type: 'success', duration: 9000 });
 });
 // An installed app window has no browser toolbar, so it gets its own Refresh button.
 const runningAsInstalledApp = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
-function updateRefreshButton() { const b = $('#btnRefreshApp'); if (b) b.hidden = !runningAsInstalledApp(); }
+function updateRefreshButton() { document.querySelectorAll('[data-app-refresh]').forEach(b => { b.hidden = !runningAsInstalledApp(); }); }
 updateRefreshButton();
 if (window.matchMedia) { const q = matchMedia('(display-mode: standalone)'); if (q.addEventListener) q.addEventListener('change', updateRefreshButton); }
 document.addEventListener('click', async e => {
-  if (!e.target.closest?.('#btnRefreshApp')) return;
-  const button = e.target.closest('#btnRefreshApp');
+  if (!e.target.closest?.('[data-app-refresh]')) return;
+  const button = e.target.closest('[data-app-refresh]');
   button.disabled = true;
   button.textContent = 'Refreshing…';
   try {   // look for a newer version first, then reload
@@ -8957,11 +9111,11 @@ document.addEventListener('click', async e => {
   location.reload();
 });
 document.addEventListener('click', async e => {
-  if (!e.target.closest?.('#btnInstallApp') || !installPromptEvent) return;
+  if (!e.target.closest?.('[data-app-install]') || !installPromptEvent) return;
   installPromptEvent.prompt();
   await installPromptEvent.userChoice.catch(() => null);
   installPromptEvent = null;
-  $('#btnInstallApp').hidden = true;
+  setInstallButtons(false);
 });
 
 document.addEventListener('click', e => {

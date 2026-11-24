@@ -5,6 +5,22 @@ like a desktop app. **Your data stays on your own computer**, in CSV files in a 
 uploaded anywhere.
 
 Works in **Chrome or Edge** (they can read and write a folder on your computer; Firefox and Safari cannot).
+The layout also fits phones: see "Using it on a phone" below.
+
+## What it can do
+
+- **Invoices and quotations** in five layouts (Classic, Modern, Minimal, Corporate, Elegant), with CGST/SGST/IGST,
+  discounts, round off, a UPI QR code, a Paid / Not paid / Draft stamp, and paper sizes from A4 to 58 mm receipts.
+  Print, save as PDF or share.
+- **Customers and items**, with wholesale prices, several contacts and shipping addresses per customer, GSTIN
+  checks, stock tracking, and low-stock warnings. An invoice can never sell more than the stock you have.
+- **View All Invoices** for saved invoices, drafts and quotations.
+- **Reports**: sales by customer, item and month, a revenue chart, top customers and items, GST by rate (CGST, SGST,
+  IGST), a day book, party-wise totals and profit by item. Every report downloads as CSV, Excel or PDF.
+- **Trash**: deleted invoices, customers and items stay for 30 days. Undo right after deleting, or **Restore all**
+  later. Items return to their original position.
+- **Backup & Restore** as one ZIP of all your data.
+- **English and Hindi**.
 
 ## Install and start
 
@@ -18,23 +34,49 @@ Works in **Chrome or Edge** (they can read and write a folder on your computer; 
 2. In the app click **Connect Database**, choose that folder and allow the browser to edit it.
    The app creates its six data files there (`customers.csv`, `items.csv`, `seller.csv`, `bank.csv`, `terms.csv`,
    `invoices.csv`) and you can start straight away.
-3. Fill in **Business & Invoice Setup** (your business, bank and terms), then add customers and items.
+3. On a new, empty folder a **welcome window** opens. Choose **Set up my business** (name, address, state, logo,
+   bank and terms, in three short steps) or **Try it with sample data**. Skipping it is fine; the invoice page
+   shows a small notice until your business details are added.
 
 ### Not sure what to add? Try the sample data
 
-The guide page has a **Sample data** section with a ready-made folder (also in this repository as
-`sample-data/InvoiceGen-sample-data.zip`). It holds made-up customers, items, sellers and bank details.
+Choose **Try it with sample data** in the welcome window (or **Backup & Restore → Load sample data** at any time).
+The app adds made-up examples to your connected folder so every feature has something to show:
 
-1. Download and unzip it. You get a folder called `InvoiceGen-sample-data`.
-2. In the app click **Connect Database** and choose that unzipped folder.
-3. Look through **Business & Invoice Setup**, **Customer Details** and **Item Details**, then create an invoice.
-4. When you are ready for real use, connect a **new empty folder** instead. Do not use the sample folder for your real
-   business, because the practice invoices would stay in it.
+- 5 customers and 15 items (some on low stock, one with no purchase price)
+- a sample business, **Sunrise Traders**, with a logo, a signature, bank and UPI details, and terms
+- 16 invoices, quotations and drafts dated over the last six months, with Paid and Not paid stamps, CGST/SGST and IGST,
+  a discount and a round-off, so the **Reports** pages are filled too
 
-The sample contains 5 customers, 15 items, 5 sellers and 2 bank/UPI entries. All of it is invented.
+A yellow bar stays at the top while sample data is loaded. **Remove sample data** (on that bar, or in
+**Backup & Restore**) takes the unchanged examples out again, puts the stock and invoice numbers back, and says exactly
+what it will remove before it does. Removed customers and items go to the **Trash** for 30 days. Your own data is
+kept.
+
+Because the sample data looks like real data to the app, use a **separate folder** for experiments and keep your real
+folder free of it.
+
+The guide page also offers a download of just the customers, items, sellers and bank details
+(`sample-data/InvoiceGen-sample-data.zip`). Unzip it and connect that folder if you prefer to start from files.
 
 Back this folder up regularly (the app also has **Backup & Restore**). It is your only copy of your invoices.
 Each person who uses the app has their own folder; nothing is shared between users.
+
+## Using it on a phone or tablet
+
+Open the app address in Chrome. The invoice page is rebuilt for a small screen:
+
+- Invoice settings (price mode, copies, paper, quotation) fold into one bar.
+- Each item is a card with the item, quantity, rate and total; **Details** opens HSN/SAC, value, GST % and tax.
+- The seller and customer cards show everything, with buttons for **Invoice details** and **Shipping address**.
+- A total bar stays at the bottom of the screen.
+- Lists (customers, items, invoices, Trash) become cards, and the saved-invoice preview shrinks to fit (pinch to zoom).
+
+A phone browser cannot pick a data folder yet, so phones are best for looking at the app. Real data on a phone would
+need the browser-storage and Google Drive sync features that are planned, not built.
+
+In the **installed app** (which has no browser toolbar) a **↻ Refresh** button sits in the top bar (in the side menu on
+a phone) and reloads the app with the newest version.
 
 ## Host it on GitHub Pages
 
@@ -54,6 +96,8 @@ and installation only work from `https://` or `http://localhost`, not from a dou
 
 - `index.html`, `landing.css`, `landing.js` – the guide page (English and Hindi) that opens first
 - `app.html`, `app.js`, `style.css`, `i18n.js`, `folder-data.js` – the app itself
+- `sample-data.js` – the example data the app loads from "Try it with sample data" (customers, items, sellers, a logo,
+  a signature and the plan for the sample invoices)
 - `sample-data/` – the downloadable sample data folder (zip) offered on the guide page
 - `tools/landing-css/` – how to rebuild the guide page stylesheet (Tailwind + daisyUI)
 - `lib/`, `fonts/` – libraries and fonts, bundled so nothing loads from the internet
