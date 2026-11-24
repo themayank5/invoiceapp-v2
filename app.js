@@ -683,6 +683,15 @@ function backupPageHTML() {
         ${BACKUP_REMINDER_CHOICES.map(([value, label]) => `<option value="${value}" ${value === backupMeta.reminderDays ? 'selected' : ''}>${label}</option>`).join('')}
       </select>
     </div>
+    <div class="backup-card">
+      <h2>Sample data</h2>
+      <p>Not sure what to enter? Add example customers, items, sellers and bank details to see how the app works. They are made up.
+      <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-outline-primary" data-sample-load ${connected ? '' : 'disabled'}>Load sample data</button>
+        <button type="button" class="btn btn-outline-danger" data-sample-remove ${connected ? '' : 'disabled'}>Remove sample data</button>
+      </div>
+      <p class="backup-note">Removing only takes out the example records that are still unchanged. Your own customers, items and invoices are kept.</p>
+    </div>
     <div class="backup-status" id="backupStatus" role="status" hidden></div>
   </div>`;
 }
@@ -1188,7 +1197,45 @@ function setStorageWarning(show) {
   if (bar) bar.hidden = !show;
 }
 
+/* ---------- stock limit: an invoice can never sell more than the stock in Item Details ---------- */
+const STOCK_TOAST = {}, REPORT_TOAST = {};   // toasts that replace themselves are keyed by an object
+const stockKey = name => String(name || '').trim().toLowerCase();
+// How many of this item the invoice may still use. Infinity when the item is not tracked, is a custom row, or the document is a quotation.
+function stockAvailableFor(row) {
+  const line = S.items[row];
+  if (!line || isQuotation() || !stockKey(line.name)) return Infinity;
+  const item = catalogItems.find(entry => stockKey(entry.name) === stockKey(line.name));
+  if (!item || item.stock === null || item.stock === undefined || item.stock === '' || Number.isNaN(+item.stock)) return Infinity;
+  let available = +item.stock;
+  // A saved invoice that is being edited has already taken its own quantity out of stock.
+  if (archivePreviewInvoice && archivePreviewInvoice.status === 'saved') {
+    (archivePreviewInvoice.snapshot?.items || []).forEach(old => { if (stockKey(old.name) === stockKey(line.name)) available += +old.qty || 0; });
+  }
+  // The same item on other rows of this invoice uses stock too.
+  S.items.forEach((other, index) => { if (index !== row && stockKey(other.name) === stockKey(line.name)) available -= +other.qty || 0; });
+  return Math.max(0, Math.round(available * 1000) / 1000);
+}
+// Lowers any quantity that is more than the stock. Returns the list of rows it had to change.
+function clampStockQuantities() {
+  const changed = [];
+  for (let row = S.items.length - 1; row >= 0; row--) {   // from the last row up, so the earlier rows keep their quantity
+    const line = S.items[row];
+    const available = stockAvailableFor(row);
+    if ((+line.qty || 0) > available) {
+      changed.unshift({ name: line.name, from: +line.qty, to: available, unit: line.unit || 'Nos' });
+      line.qty = available;
+    }
+  }
+  if (changed.length) {
+    const c = changed[0];
+    const text = c.to > 0 ? `Only ${c.to} ${c.unit} of “${c.name}” in stock. The quantity was set to ${c.to}.` : `“${c.name}” is out of stock, so it cannot be sold.`;
+    showToast(changed.length > 1 ? `${text} (${changed.length - 1} more item${changed.length === 2 ? '' : 's'} adjusted)` : text, { type: 'warning', source: STOCK_TOAST });
+  }
+  return changed;
+}
+
 function save() {
+  clampStockQuantities();
   if (archivePreviewInvoice) return true;
   try {
     localStorage.setItem(KEY, JSON.stringify(inlineStateImages(S)));
@@ -2218,8 +2265,10 @@ function save() {
     }
     const status = $('#customerImportStatus');
     const updatedCustomers = importedCustomers.filter((_, customerIndex) => customerIndex !== index);
+    const removedCustomer = importedCustomers[index];
     try {
       await persistCustomerList(updatedCustomers, true);
+      const entry = removedCustomer ? addToTrash('customer', removedCustomer.name || 'Customer', removedCustomer, index) : null;
       selectedCustomers.clear();
       directoryPagination.customer.page = Math.min(
         directoryPagination.customer.page,
@@ -2227,6 +2276,7 @@ function save() {
       );
       render();
       openEditor('customerDirectory');
+      if (entry) offerUndo(entry, `${entry.label} was deleted.`);
     } catch (error) {
       console.error('Could not remove customer.', error);
       status.className = 'customer-import-status error';
@@ -3252,9 +3302,9 @@ function save() {
     return [isoDate(new Date(now.getFullYear(), now.getMonth() + offset, 1)), isoDate(new Date(now.getFullYear(), now.getMonth() + offset + 1, 0))];
   }
 
-  function archiveRangeBounds() {
+  function archiveRangeBounds(range = archiveRange, from = archiveFrom, to = archiveTo) {
     const now = new Date();
-    switch (archiveRange) {
+    switch (range) {
       case 'this-month': return monthBounds(0);
       case 'last-month': return monthBounds(-1);
       case 'this-quarter': {
@@ -3265,7 +3315,7 @@ function save() {
         const y = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
         return [`${y}-04-01`, `${y + 1}-03-31`];
       }
-      case 'custom': return [archiveFrom, archiveTo];
+      case 'custom': return [from, to];
       default: return ['', ''];
     }
   }
@@ -3279,6 +3329,401 @@ function save() {
 
   const invoiceKind = invoice => (invoice.status === 'draft' ? (invoice.snapshot?.docType === 'quotation' ? 'quotation' : 'draft') : invoice.status === 'quotation' ? 'quotation' : 'saved');
   const sumTotals = list => round2(list.reduce((a, invoice) => a + (+invoice.total || 0), 0));
+
+  /* ---------- reports: sales, GST, day book, party-wise, profit + CSV / Excel / PDF export ---------- */
+  let reportRange = 'this-fy', reportFrom = '', reportTo = '', reportGroup = 'customer', reportChartBy = 'month', reportType = 'sales', reportParty = '';
+  const REPORT_TYPES = [['sales', 'Sales'], ['gst', 'GST'], ['daybook', 'Day book'], ['party', 'Party-wise'], ['profit', 'Profit']];
+  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthLabel = ym => `${MONTH_NAMES[(+ym.slice(5, 7) || 1) - 1]} ${ym.slice(0, 4)}`;
+  const shortMoney = v => {
+    const n = Math.abs(v), sign = v < 0 ? '-' : '';
+    if (n >= 1e7) return `${sign}₹${+(n / 1e7).toFixed(2)}Cr`;
+    if (n >= 1e5) return `${sign}₹${+(n / 1e5).toFixed(2)}L`;
+    if (n >= 1e3) return `${sign}₹${+(n / 1e3).toFixed(1)}K`;
+    return `${sign}₹${Math.round(n)}`;
+  };
+  const paidState = invoice => (invoice.snapshot?.watermark === 'notpaid' ? 'Not paid' : invoice.snapshot?.watermark === 'paid' ? 'Paid' : '—');
+
+  function reportInvoices() {
+    const bounds = archiveRangeBounds(reportRange, reportFrom, reportTo);
+    return archivedInvoices.filter(invoice => invoiceKind(invoice) === 'saved' && inDateRange(invoice, bounds));
+  }
+
+  function reportPeriodLabel() {
+    const [from, to] = archiveRangeBounds(reportRange, reportFrom, reportTo);
+    const named = (ARCHIVE_RANGES.find(([value]) => value === reportRange) || [])[1] || 'All time';
+    return from || to ? `${named} (${from ? dt(from) : 'start'} to ${to ? dt(to) : 'today'})` : named;
+  }
+
+  // The lines of one saved invoice with their taxable value and GST (after any bill-level discount).
+  function reportLines(invoice) {
+    const snap = invoice.snapshot || {};
+    const incl = snap.priceMode === 'incl';
+    const factor = snapshotNetFactor(snap);
+    return (snap.items || []).filter(line => String(line.name || '').trim() || +line.rate).map(line => {
+      const g = +line.gst || 0, q = +line.qty || 0, r = +line.rate || 0, d = +line.disc || 0;
+      const base = Math.max(0, r * q - d);
+      const taxable = (incl ? base / (1 + g / 100) : base) * factor;
+      return { name: String(line.name || '').trim() || '(no name)', qty: q, g, taxable, tax: taxable * g / 100 };
+    });
+  }
+
+  function reportAggregate() {
+    const invoices = reportInvoices();
+    const maps = { customer: new Map(), item: new Map(), month: new Map() };
+    const totals = { count: invoices.length, taxable: 0, tax: 0, total: 0 };
+    const records = [];
+    const add = (map, key, label, v) => {
+      const entry = map.get(key) || { label, count: 0, qty: 0, taxable: 0, tax: 0, total: 0 };
+      entry.count += v.count || 0; entry.qty += v.qty || 0; entry.taxable += v.taxable; entry.tax += v.tax; entry.total += v.total;
+      map.set(key, entry);
+    };
+    invoices.forEach(invoice => {
+      const lines = reportLines(invoice);
+      const taxable = lines.reduce((a, l) => a + l.taxable, 0), tax = lines.reduce((a, l) => a + l.tax, 0);
+      const total = +invoice.total || 0;
+      const snap = invoice.snapshot || {};
+      const intra = Boolean(snap.seller?.state && snap.meta?.pos && snap.seller.state === snap.meta.pos);
+      records.push({ invoice, lines, taxable, tax, total, intra });
+      totals.taxable += taxable; totals.tax += tax; totals.total += total;
+      const name = String(invoice.customerName || '').trim() || '(no customer)';
+      add(maps.customer, name.toLowerCase(), name, { count: 1, taxable, tax, total });
+      const month = String(invoice.invoiceDate || '').slice(0, 7) || 'unknown';
+      add(maps.month, month, month === 'unknown' ? 'No date' : monthLabel(month), { count: 1, taxable, tax, total });
+      lines.forEach(line => add(maps.item, line.name.toLowerCase(), line.name, { count: 1, qty: line.qty, taxable: line.taxable, tax: line.tax, total: line.taxable + line.tax }));
+    });
+    return { invoices, maps, totals, records };
+  }
+
+  function reportRows(agg, group) {
+    const rows = [...agg.maps[group].entries()].map(([key, value]) => ({ key, ...value }));
+    if (group === 'month') return rows.sort((a, b) => a.key.localeCompare(b.key));
+    return rows.sort((a, b) => b.total - a.total);
+  }
+
+  /* A dataset is one table: { title, file, cols: [{ h, kind }], rows: [[...]], foot: [...] | null, note }.
+     kind: text | int | money | pct. The page, the CSV, the Excel file and the PDF are all made from it. */
+  function reportDataset(agg) {
+    const money = v => (v === null || v === undefined ? null : round2(v));
+    if (reportType === 'gst') {
+      const byRate = new Map();
+      agg.records.forEach(rec => rec.lines.forEach(line => {
+        const e = byRate.get(line.g) || { taxable: 0, cgst: 0, sgst: 0, igst: 0 };
+        e.taxable += line.taxable;
+        if (rec.intra) { e.cgst += line.tax / 2; e.sgst += line.tax / 2; } else e.igst += line.tax;
+        byRate.set(line.g, e);
+      }));
+      const rows = [...byRate.entries()].sort((a, b) => a[0] - b[0]).map(([g, e]) => [`${g}%`, money(e.taxable), money(e.cgst), money(e.sgst), money(e.igst), money(e.cgst + e.sgst + e.igst)]);
+      const sum = i => round2(rows.reduce((a, r) => a + r[i], 0));
+      return {
+        title: 'GST collected by rate', file: 'gst-by-rate', note: 'CGST and SGST are for sales within your state, IGST for sales to other states. Saved invoices only.',
+        cols: [{ h: 'GST rate', kind: 'text' }, { h: 'Taxable value', kind: 'money' }, { h: 'CGST', kind: 'money' }, { h: 'SGST', kind: 'money' }, { h: 'IGST', kind: 'money' }, { h: 'Total GST', kind: 'money' }],
+        rows, foot: rows.length ? ['Total', sum(1), sum(2), sum(3), sum(4), sum(5)] : null
+      };
+    }
+    if (reportType === 'daybook') {
+      const recs = [...agg.records].sort((a, b) => String(a.invoice.invoiceDate).localeCompare(String(b.invoice.invoiceDate)) || String(a.invoice.invoiceNo).localeCompare(String(b.invoice.invoiceNo)));
+      const rows = recs.map(r => [dt(r.invoice.invoiceDate), r.invoice.invoiceNo, r.invoice.customerName, money(r.taxable), money(r.tax), money(r.total), paidState(r.invoice)]);
+      return {
+        title: 'Day book', file: 'day-book', note: 'Every saved invoice in date order. The last column is the Paid / Not paid mark you set on the invoice.',
+        cols: [{ h: 'Date', kind: 'text' }, { h: 'Invoice no.', kind: 'text' }, { h: 'Customer', kind: 'text' }, { h: 'Taxable', kind: 'money' }, { h: 'GST', kind: 'money' }, { h: 'Total', kind: 'money' }, { h: 'Status', kind: 'text' }],
+        rows, foot: rows.length ? ['', '', 'Total', money(agg.totals.taxable), money(agg.totals.tax), money(agg.totals.total), ''] : null
+      };
+    }
+    if (reportType === 'party') {
+      if (reportParty) {
+        const recs = agg.records.filter(r => String(r.invoice.customerName || '').trim().toLowerCase() === reportParty.toLowerCase())
+          .sort((a, b) => String(a.invoice.invoiceDate).localeCompare(String(b.invoice.invoiceDate)));
+        const rows = recs.map(r => [dt(r.invoice.invoiceDate), r.invoice.invoiceNo, money(r.taxable), money(r.tax), money(r.total), paidState(r.invoice)]);
+        const sum = i => round2(rows.reduce((a, r) => a + r[i], 0));
+        return {
+          title: `Invoices of ${reportParty}`, file: `party-${reportParty.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'customer'}`, note: '',
+          cols: [{ h: 'Date', kind: 'text' }, { h: 'Invoice no.', kind: 'text' }, { h: 'Taxable', kind: 'money' }, { h: 'GST', kind: 'money' }, { h: 'Total', kind: 'money' }, { h: 'Status', kind: 'text' }],
+          rows, foot: rows.length ? ['', 'Total', sum(2), sum(3), sum(4), ''] : null
+        };
+      }
+      const parties = new Map();
+      agg.records.forEach(rec => {
+        const name = String(rec.invoice.customerName || '').trim() || '(no customer)';
+        const e = parties.get(name.toLowerCase()) || { name, count: 0, total: 0, paid: 0, notpaid: 0, last: '' };
+        e.count++; e.total += rec.total;
+        const state = paidState(rec.invoice);
+        if (state === 'Paid') e.paid += rec.total; else if (state === 'Not paid') e.notpaid += rec.total;
+        if (String(rec.invoice.invoiceDate) > e.last) e.last = String(rec.invoice.invoiceDate);
+        parties.set(name.toLowerCase(), e);
+      });
+      const list = [...parties.values()].sort((a, b) => b.total - a.total);
+      const rows = list.map(e => [e.name, e.count, money(e.total), money(e.paid), money(e.notpaid), e.last ? dt(e.last) : '']);
+      const sum = i => round2(rows.reduce((a, r) => a + r[i], 0));
+      return {
+        title: 'Party-wise sales', file: 'party-wise', partyLinks: true, note: 'Click a customer to see their invoices. “Paid” and “Not paid” follow the mark you set on each invoice. Unmarked invoices are in the total only.',
+        cols: [{ h: 'Customer', kind: 'text' }, { h: 'Invoices', kind: 'int' }, { h: 'Total billed', kind: 'money' }, { h: 'Marked paid', kind: 'money' }, { h: 'Marked not paid', kind: 'money' }, { h: 'Last invoice', kind: 'text' }],
+        rows, foot: rows.length ? ['Total', rows.reduce((a, r) => a + r[1], 0), sum(2), sum(3), sum(4), ''] : null
+      };
+    }
+    if (reportType === 'profit') {
+      const costs = new Map();
+      catalogItems.forEach(item => costs.set(String(item.name || '').trim().toLowerCase(), +item.cost > 0 ? +item.cost : 0));
+      const items = reportRows(agg, 'item').map(r => {
+        const cost = costs.get(r.key) || 0;
+        if (!cost) return { label: r.label, qty: r.qty, revenue: r.taxable, cost: null, profit: null, margin: null };
+        const costTotal = cost * r.qty;
+        return { label: r.label, qty: r.qty, revenue: r.taxable, cost: costTotal, profit: r.taxable - costTotal, margin: r.taxable ? (r.taxable - costTotal) / r.taxable * 100 : 0 };
+      }).sort((a, b) => (b.profit === null ? -Infinity : b.profit) - (a.profit === null ? -Infinity : a.profit));
+      const costed = items.filter(i => i.cost !== null);
+      const missing = items.length - costed.length;
+      const rev = costed.reduce((a, i) => a + i.revenue, 0), cost = costed.reduce((a, i) => a + i.cost, 0);
+      return {
+        title: 'Profit by item', file: 'profit-by-item', profit: { revenue: rev, cost, profit: rev - cost, margin: rev ? (rev - cost) / rev * 100 : 0, missing },
+        note: `Profit = sales before GST minus quantity sold × the purchase price in Item Details.${missing ? ` ${missing} item${missing === 1 ? ' has' : 's have'} no purchase price, so ${missing === 1 ? 'it is' : 'they are'} shown as “—” and left out of the totals.` : ''}`,
+        cols: [{ h: 'Item', kind: 'text' }, { h: 'Qty sold', kind: 'int' }, { h: 'Sales (before GST)', kind: 'money' }, { h: 'Cost', kind: 'money' }, { h: 'Profit', kind: 'money' }, { h: 'Margin %', kind: 'pct' }],
+        rows: items.map(i => [i.label, round2(i.qty), money(i.revenue), money(i.cost), money(i.profit), i.margin === null ? null : round2(i.margin)]),
+        foot: costed.length ? ['Total (items with a cost)', '', money(rev), money(cost), money(rev - cost), rev ? round2((rev - cost) / rev * 100) : 0] : null
+      };
+    }
+    // sales
+    const rows = reportRows(agg, reportGroup);
+    const showQty = reportGroup === 'item';
+    const label = { customer: 'Customer', item: 'Item', month: 'Month' }[reportGroup];
+    const grand = agg.totals.total || 1;
+    const cols = [{ h: label, kind: 'text' }, { h: 'Invoices', kind: 'int' }, ...(showQty ? [{ h: 'Qty sold', kind: 'int' }] : []), { h: 'Taxable', kind: 'money' }, { h: 'GST', kind: 'money' }, { h: 'Total', kind: 'money' }, { h: 'Share %', kind: 'pct' }];
+    return {
+      title: `Sales by ${label.toLowerCase()}`, file: `sales-by-${reportGroup}`,
+      note: showQty ? 'The invoice count is the number of invoices the item appears on.' : 'Saved invoices only. Drafts and quotations are not counted.',
+      cols,
+      rows: rows.map(r => [r.label, r.count, ...(showQty ? [round2(r.qty)] : []), money(r.taxable), money(r.tax), money(r.total), round2(r.total / grand * 100)]),
+      foot: rows.length ? ['Total', showQty ? '' : agg.totals.count, ...(showQty ? [''] : []), money(agg.totals.taxable), money(agg.totals.tax), money(agg.totals.total), 100] : null
+    };
+  }
+
+  const reportCell = (value, kind) => {
+    if (value === null || value === undefined || value === '') return value === null ? '<span class="text-muted" title="Add a purchase price in Item Details">—</span>' : '';
+    if (kind === 'money') return rs(value);
+    if (kind === 'pct') return `${(+value).toFixed(1)}%`;
+    return esc(String(value));
+  };
+
+  function reportTableHTML(ds) {
+    const head = ds.cols.map(c => `<th class="${c.kind === 'text' ? '' : 'text-end'}">${esc(c.h)}</th>`).join('');
+    const body = ds.rows.length ? ds.rows.map((row, i) => `<tr><th scope="row" class="directory-row-number">${i + 1}</th>${row.map((v, ci) => {
+      const kind = ds.cols[ci].kind;
+      const text = ds.partyLinks && ci === 0 ? `<button type="button" class="btn btn-link p-0 report-party-link" data-report-party="${esc(String(v))}">${esc(String(v))}</button>` : (kind === 'money' && ci === row.length - 1 && ds.cols[ci].h === 'Total' ? `<strong>${reportCell(v, kind)}</strong>` : reportCell(v, kind));
+      return `<td class="${kind === 'text' ? '' : 'text-end'}">${text}</td>`;
+    }).join('')}</tr>`).join('')
+      : `<tr><td colspan="${ds.cols.length + 1}" class="customer-directory-empty">No saved invoices in this period yet.</td></tr>`;
+    const foot = ds.foot ? `<tfoot><tr><th></th>${ds.foot.map((v, ci) => `<th class="${ds.cols[ci].kind === 'text' ? '' : 'text-end'}">${v === '' ? '' : ds.cols[ci].kind === 'text' ? esc(String(v)) : reportCell(v, ds.cols[ci].kind)}</th>`).join('')}</tr></tfoot>` : '';
+    return `<div class="customer-directory-table-wrap"><table class="table table-sm table-striped table-hover table-bordered align-middle report-table"><thead><tr><th class="directory-row-number">#</th>${head}</tr></thead><tbody>${body}</tbody>${foot}</table></div>`;
+  }
+
+  function reportExportBarHTML(ds) {
+    const off = ds.rows.length ? '' : 'disabled';
+    return `<div class="rp-export" role="group" aria-label="Download this report">
+      <button type="button" class="btn btn-sm btn-outline-primary" data-report-export="csv" ${off}>CSV</button>
+      <button type="button" class="btn btn-sm btn-outline-primary" data-report-export="xlsx" ${off}>Excel</button>
+      <button type="button" class="btn btn-sm btn-outline-primary" data-report-export="pdf" ${off}>PDF</button>
+    </div>`;
+  }
+
+  function reportFilterHTML() {
+    const options = ARCHIVE_RANGES.map(([value, label]) => `<option value="${value}" ${reportRange === value ? 'selected' : ''}>${label}</option>`).join('');
+    return `<div class="archive-filter-bar">
+      <label class="archive-filter-label" for="reportRangeSelect">Period</label>
+      <select class="form-select form-select-sm archive-range-select" id="reportRangeSelect" data-report-range>${options}</select>
+      ${reportRange === 'custom' ? `<div class="archive-custom-range">
+        <input type="date" class="form-control form-control-sm" data-report-from value="${esc(reportFrom)}" max="${esc(reportTo)}" aria-label="From date">
+        <span>to</span>
+        <input type="date" class="form-control form-control-sm" data-report-to value="${esc(reportTo)}" min="${esc(reportFrom)}" aria-label="To date">
+      </div>` : ''}
+    </div>`;
+  }
+
+  function reportTypeTabsHTML() {
+    return `<div class="archive-tabs rp-types" role="tablist" aria-label="Report">${REPORT_TYPES.map(([key, text]) => `<button type="button" class="archive-tab ${reportType === key ? 'is-active' : ''}" role="tab" aria-selected="${reportType === key}" data-report-type="${key}">${text}</button>`).join('')}</div>`;
+  }
+
+  function reportKpisHTML(agg, ds) {
+    let t = agg.totals;
+    if (reportType === 'party' && reportParty) {   // one customer chosen: the cards show only their figures
+      const mine = agg.records.filter(r => String(r.invoice.customerName || '').trim().toLowerCase() === reportParty.toLowerCase());
+      t = { count: mine.length, taxable: mine.reduce((a, r) => a + r.taxable, 0), tax: mine.reduce((a, r) => a + r.tax, 0), total: mine.reduce((a, r) => a + r.total, 0) };
+    }
+    const card = (cls, label, value, sub) => `<div class="kpi-card ${cls}"><span class="kpi-label">${label}</span><span class="kpi-value">${value}</span><span class="kpi-sub">${sub}</span></div>`;
+    if (reportType === 'gst') {
+      const f = ds.foot || ['', 0, 0, 0, 0, 0];
+      return [card('kpi-blue', 'Taxable Value', rs(f[1]), 'Sales before GST'), card('kpi-green', 'CGST + SGST', rs(round2(f[2] + f[3])), 'Sales within your state'), card('kpi-violet', 'IGST', rs(f[4]), 'Sales to other states'), card('kpi-rose', 'Total GST', rs(f[5]), `${t.count} saved invoice${t.count === 1 ? '' : 's'}`)].join('');
+    }
+    if (reportType === 'profit') {
+      const p = ds.profit;
+      return [card('kpi-blue', 'Sales (before GST)', rs(round2(p.revenue)), 'Items with a purchase price'), card('kpi-amber', 'Cost', rs(round2(p.cost)), 'Qty sold × purchase price'), card(p.profit >= 0 ? 'kpi-green' : 'kpi-rose', 'Profit', rs(round2(p.profit)), p.profit >= 0 ? 'Sales minus cost' : 'A loss in this period'), card('kpi-violet', 'Margin', `${p.margin.toFixed(1)}%`, p.missing ? `${p.missing} item${p.missing === 1 ? '' : 's'} without a cost` : 'All items have a cost')].join('');
+    }
+    return [
+      card('kpi-blue', 'Total Sales', rs(t.total), `${t.count} saved invoice${t.count === 1 ? '' : 's'}`),
+      card('kpi-green', 'Taxable Value', rs(round2(t.taxable)), 'Sales before GST'),
+      card('kpi-violet', 'GST Collected', rs(round2(t.tax)), 'CGST + SGST + IGST'),
+      card('kpi-rose', 'Average Invoice', rs(t.count ? t.total / t.count : 0), t.count ? 'Per saved invoice' : 'No saved invoices')
+    ].join('');
+  }
+
+  function reportChartHTML(agg) {
+    let points;
+    if (reportChartBy === 'fy') {
+      const byFy = new Map();
+      agg.invoices.forEach(invoice => {
+        const key = financialYearLabel(invoice.invoiceDate);
+        byFy.set(key, (byFy.get(key) || 0) + (+invoice.total || 0));
+      });
+      points = [...byFy.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([key, value]) => ({ label: `FY ${key}`, value, tip: `Financial year 20${key.slice(0, 2)}-${key.slice(3)}` }));
+    } else {
+      const byMonth = new Map([...agg.maps.month.entries()].filter(([key]) => key !== 'unknown').map(([key, v]) => [key, v.total]));
+      const keys = [...byMonth.keys()].sort();
+      points = [];
+      if (keys.length) {
+        let [y, m] = keys[0].split('-').map(Number);
+        const [ly, lm] = keys[keys.length - 1].split('-').map(Number);
+        while (y < ly || (y === ly && m <= lm)) {
+          const key = `${y}-${String(m).padStart(2, '0')}`;
+          points.push({ label: `${MONTH_NAMES[m - 1]} ${String(y).slice(2)}`, value: byMonth.get(key) || 0, tip: monthLabel(key) });
+          if (++m > 12) { m = 1; y++; }
+        }
+        if (points.length > 24) points = points.slice(-24);
+      }
+    }
+    const toggle = `<div class="rp-toggle" role="group" aria-label="Chart period">
+      <button type="button" class="btn btn-sm ${reportChartBy === 'month' ? 'btn-primary' : 'btn-outline-secondary'}" data-report-chart="month">Monthly</button>
+      <button type="button" class="btn btn-sm ${reportChartBy === 'fy' ? 'btn-primary' : 'btn-outline-secondary'}" data-report-chart="fy">Financial year</button>
+    </div>`;
+    if (!points.length || points.every(p => !p.value)) {
+      return `<div class="rp-card"><div class="rp-card-head"><strong>Revenue</strong>${toggle}</div><div class="rp-empty">No saved invoices in this period yet.</div></div>`;
+    }
+    const max = Math.max(...points.map(p => p.value)) || 1;
+    const showAll = points.length <= 12;
+    const bars = points.map(p => {
+      const h = Math.max(p.value > 0 ? 2 : 0, p.value / max * 100);
+      const label = p.value && (showAll || p.value === max) ? shortMoney(p.value) : '';
+      return `<div class="rp-col" title="${esc(p.tip)}: ${esc(rs(p.value))}"><span class="rp-val">${label}</span><div class="rp-track"><div class="rp-bar" style="height:${h.toFixed(1)}%"></div></div><span class="rp-lbl">${esc(p.label)}</span></div>`;
+    }).join('');
+    return `<div class="rp-card"><div class="rp-card-head"><strong>Revenue</strong>${toggle}</div><div class="rp-chart" role="img" aria-label="Revenue by ${reportChartBy === 'fy' ? 'financial year' : 'month'}">${bars}</div><div class="form-text">Totals of saved invoices. The table below has the exact figures.</div></div>`;
+  }
+
+  function reportTopHTML(agg, group, title) {
+    const rows = reportRows(agg, group).slice(0, 5);
+    const max = rows.length ? rows[0].total || 1 : 1;
+    const body = rows.length ? rows.map((r, i) => `<li class="rp-top-row"><span class="rp-top-rank">${i + 1}</span><div class="rp-top-main"><div class="rp-top-name">${esc(r.label)}</div><div class="rp-top-meter"><span style="width:${(r.total / max * 100).toFixed(1)}%"></span></div></div><span class="rp-top-value">${rs(round2(r.total))}</span></li>`).join('')
+      : '<li class="rp-empty">No sales yet.</li>';
+    return `<div class="rp-card"><div class="rp-card-head"><strong>${title}</strong></div><ol class="rp-top">${body}</ol></div>`;
+  }
+
+  function reportBodyHTML(agg, ds) {
+    let tabs = '', extra = '', back = '';
+    if (reportType === 'sales') {
+      const tab = (key, text) => `<button type="button" class="archive-tab ${reportGroup === key ? 'is-active' : ''}" role="tab" aria-selected="${reportGroup === key}" data-report-group="${key}">${text}</button>`;
+      tabs = `<div class="archive-tabs" role="tablist" aria-label="Group sales by">${tab('customer', 'By customer')}${tab('item', 'By item')}${tab('month', 'By month')}</div>`;
+      extra = `${reportChartHTML(agg)}<div class="rp-two">${reportTopHTML(agg, 'customer', 'Top 5 customers')}${reportTopHTML(agg, 'item', 'Top 5 items')}</div>`;
+    }
+    if (reportType === 'party' && reportParty) back = '<button type="button" class="btn btn-sm btn-outline-secondary" data-report-party="">← All parties</button>';
+    return `${extra}<div class="invoice-archive-heading">
+        <div><strong>${esc(ds.title)}</strong>${ds.note ? `<div class="form-text">${esc(ds.note)}</div>` : ''}</div>
+        <div class="customer-directory-tools">${back}${reportExportBarHTML(ds)}</div>
+      </div>${tabs}${reportTableHTML(ds)}`;
+  }
+
+  function reportsPageHTML() {
+    const warn = invoiceCsvHandle ? '' : '<div class="alert alert-warning" role="status">Connect Database to load your saved invoices.</div>';
+    const agg = reportAggregate(), ds = reportDataset(agg);
+    return `${warn}${reportFilterHTML()}${reportTypeTabsHTML()}
+      <div class="kpi-grid" id="reportKpis">${reportKpisHTML(agg, ds)}</div>
+      <div id="reportBody">${reportBodyHTML(agg, ds)}</div>`;
+  }
+
+  function refreshReports() {
+    const agg = reportAggregate(), ds = reportDataset(agg);
+    const kpis = $('#reportKpis'), body = $('#reportBody');
+    if (kpis) kpis.innerHTML = reportKpisHTML(agg, ds);
+    if (body) body.innerHTML = reportBodyHTML(agg, ds);
+    document.querySelectorAll('[data-report-type]').forEach(b => {
+      b.classList.toggle('is-active', b.dataset.reportType === reportType);
+      b.setAttribute('aria-selected', String(b.dataset.reportType === reportType));
+    });
+  }
+
+  /* ---- exports ---- */
+  const exportValue = (v, kind) => (v === null || v === undefined ? '' : v);
+  const exportFileName = (ds, ext) => `${ds.file}-${todayISO()}.${ext}`;
+
+  function reportCsvFile(ds) {
+    const cell = v => `"${String(v === null || v === undefined ? '' : v).replace(/"/g, '""')}"`;
+    const lines = [ds.cols.map(c => cell(c.h)).join(',')]
+      .concat(ds.rows.map(r => r.map(cell).join(',')))
+      .concat(ds.foot ? [ds.foot.map(cell).join(',')] : []);
+    return new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  }
+
+  // A real .xlsx file (opens in Excel, Google Sheets, LibreOffice), written by hand so no extra library is needed.
+  async function reportXlsxFile(ds) {
+    const xml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const col = n => { let s = ''; n++; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+    const cellXml = (v, ref, kind, style) => {
+      if (v === null || v === undefined || v === '') return '';
+      if (typeof v === 'number' && kind !== 'text') return `<c r="${ref}" s="${kind === 'money' || kind === 'pct' ? 2 : style}"><v>${v}</v></c>`;
+      return `<c r="${ref}" t="inlineStr" s="${style}"><is><t xml:space="preserve">${xml(v)}</t></is></c>`;
+    };
+    const sheetRows = [];
+    sheetRows.push(`<row r="1">${ds.cols.map((c, i) => cellXml(c.h, `${col(i)}1`, 'text', 1)).join('')}</row>`);
+    ds.rows.forEach((r, ri) => sheetRows.push(`<row r="${ri + 2}">${r.map((v, i) => cellXml(v, `${col(i)}${ri + 2}`, ds.cols[i].kind, 0)).join('')}</row>`));
+    if (ds.foot) { const n = ds.rows.length + 2; sheetRows.push(`<row r="${n}">${ds.foot.map((v, i) => cellXml(v, `${col(i)}${n}`, ds.cols[i].kind, 1)).join('')}</row>`); }
+    const widths = ds.cols.map((c, i) => `<col min="${i + 1}" max="${i + 1}" width="${i === 0 || c.kind === 'text' ? 26 : 16}" customWidth="1"/>`).join('');
+    const zip = new JSZip();
+    zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
+    zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+    zip.file('xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${xml(ds.title.slice(0, 31).replace(/[\\/?*[\]:]/g, ' '))}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
+    zip.file('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+    zip.file('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="2" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs></styleSheet>');
+    zip.file('xl/worksheets/sheet1.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>${widths}</cols><sheetData>${sheetRows.join('')}</sheetData></worksheet>`);
+    return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', compression: 'DEFLATE' });
+  }
+
+  function reportPdfHTML(ds) {
+    const th = (c) => `<th style="border:1px solid #94a3b8;padding:5px 7px;background:#e2e8f0;text-align:${c.kind === 'text' ? 'left' : 'right'};font-size:11px">${esc(c.h)}</th>`;
+    const td = (v, c, bold) => `<td style="border:1px solid #cbd5e1;padding:4px 7px;text-align:${c.kind === 'text' ? 'left' : 'right'};font-size:11px;${bold ? 'font-weight:700;background:#f1f5f9' : ''}">${v === null ? '—' : v === '' || v === undefined ? '' : c.kind === 'money' ? esc(rs(v)) : c.kind === 'pct' ? `${(+v).toFixed(1)}%` : esc(String(v))}</td>`;
+    const seller = (S.seller && S.seller.name) ? esc(S.seller.name) : 'InvoiceGen';
+    return `<div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a;padding:4px;width:100%;box-sizing:border-box;background:#fff">
+      <div style="font-size:12px;color:#475569">${seller}</div>
+      <h2 style="margin:2px 0 2px;font-size:20px">${esc(ds.title)}</h2>
+      <div style="font-size:11px;color:#475569;margin-bottom:10px">Period: ${esc(reportPeriodLabel())} · Created ${esc(dt(todayISO()))}</div>
+      <table style="border-collapse:collapse;width:100%;table-layout:auto"><thead><tr><th style="border:1px solid #94a3b8;padding:5px 7px;background:#e2e8f0;font-size:11px;text-align:left">#</th>${ds.cols.map(th).join('')}</tr></thead>
+      <tbody>${ds.rows.map((r, i) => `<tr><td style="border:1px solid #cbd5e1;padding:4px 7px;font-size:11px">${i + 1}</td>${r.map((v, ci) => td(v, ds.cols[ci])).join('')}</tr>`).join('')}
+      ${ds.foot ? `<tr><td style="border:1px solid #cbd5e1;background:#f1f5f9"></td>${ds.foot.map((v, ci) => td(v, ds.cols[ci], true)).join('')}</tr>` : ''}</tbody></table>
+      ${ds.note ? `<div style="font-size:10px;color:#64748b;margin-top:8px">${esc(ds.note)}</div>` : ''}</div>`;
+  }
+
+  async function reportPdfFile(ds, asBlob) {
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:fixed;left:0;top:0;z-index:-1;opacity:0;pointer-events:none;background:#fff';
+    holder.innerHTML = reportPdfHTML(ds);
+    document.body.appendChild(holder);
+    try {
+      const job = html2pdf().set({
+        margin: [8, 8, 8, 8], filename: exportFileName(ds, 'pdf'), image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, backgroundColor: '#ffffff' }, jsPDF: { unit: 'mm', format: 'a4', orientation: ds.cols.length > 5 ? 'landscape' : 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] }
+      }).from(holder.firstElementChild);
+      if (asBlob) return await job.outputPdf('blob');
+      await job.save();
+    } finally { holder.remove(); }
+  }
+
+  async function reportExport(kind) {
+    const ds = reportDataset(reportAggregate());
+    if (!ds.rows.length) return;
+    try {
+      if (kind === 'csv') downloadBlob(reportCsvFile(ds), exportFileName(ds, 'csv'));
+      else if (kind === 'xlsx') downloadBlob(await reportXlsxFile(ds), exportFileName(ds, 'xlsx'));
+      else if (kind === 'pdf') { showToast('Creating the PDF…', { source: REPORT_TOAST }); await reportPdfFile(ds); showToast('PDF saved to your Downloads folder.', { source: REPORT_TOAST, type: 'success' }); }
+    } catch (error) {
+      console.warn('Report export failed.', error);
+      showToast('Could not create that file. Try CSV or Excel instead.', { type: 'error' });
+    }
+  }
 
   function invoiceArchiveFilterHTML() {
     const options = ARCHIVE_RANGES.map(([value, label]) => `<option value="${value}" ${archiveRange === value ? 'selected' : ''}>${label}</option>`).join('');
@@ -3437,6 +3882,11 @@ function save() {
     status.className = 'invoice-save-status no-print';
     if (!invoiceCsvHandle) {
       showCsvHelp('all', `Connect the database, including invoices.csv, before saving a ${docWord}.`);
+      return false;
+    }
+
+    if (!isQuote && !isDraftSave && clampStockQuantities().length) {   // never save an invoice that sells more than the stock
+      render();
       return false;
     }
 
@@ -3607,14 +4057,182 @@ function save() {
     if (!invoice) return;
     try {
       await persistInvoiceArchive(archivedInvoices.filter((_, invoiceIndex) => invoiceIndex !== index));
+      const entry = addToTrash('invoice', `${invoiceLabel(invoice)}${invoice.customerName ? ` · ${invoice.customerName}` : ''}`, invoice, index);
       openEditor('invoiceArchive');
-      $('#invoiceArchiveStatus').className = 'customer-import-status success';
-      $('#invoiceArchiveStatus').textContent = `${invoiceLabel(invoice)} was deleted from invoices.csv.`;
+      offerUndo(entry, `${invoiceLabel(invoice)} was deleted.`);
     } catch (error) {
       console.error('Could not delete the archived invoice.', error);
       const status = $('#invoiceArchiveStatus');
       status.className = 'customer-import-status error';
       status.textContent = error.message || 'Could not delete this invoice.';
+    }
+  }
+
+
+  /* ---------- trash: deleted invoices, customers and items can be brought back ---------- */
+  const TRASH_KEY = 'invoicegen_trash_v1', TRASH_DAYS = 30, TRASH_MAX = 300, DAY_MS = 86400000;
+  const TRASH_KINDS = [['invoice', 'Invoices'], ['customer', 'Customers'], ['item', 'Items']];
+  let trashTab = 'invoice';
+
+  function loadTrash() {
+    try {
+      const list = JSON.parse(localStorage.getItem(TRASH_KEY) || '[]');
+      const cutoff = Date.now() - TRASH_DAYS * DAY_MS;
+      return Array.isArray(list) ? list.filter(entry => entry && entry.data && entry.deletedAt > cutoff) : [];
+    } catch (error) { return []; }
+  }
+  function saveTrash(list) {
+    try { localStorage.setItem(TRASH_KEY, JSON.stringify(list.slice(-TRASH_MAX))); return true; } catch (error) { console.warn('Could not save the trash.', error); return false; }
+  }
+  function updateTrashBadge() {
+    const badge = $('#trashCount');
+    if (!badge) return;
+    const count = loadTrash().length;
+    badge.textContent = String(count);
+    badge.hidden = !count;
+  }
+  function addToTrash(kind, label, data, index = null) {
+    const entry = { index, id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`, kind, label, deletedAt: Date.now(), data: structuredClone(data) };
+    saveTrash([...loadTrash(), entry]);
+    updateTrashBadge();
+    return entry;
+  }
+  function dropFromTrash(id) {
+    saveTrash(loadTrash().filter(entry => entry.id !== id));
+    updateTrashBadge();
+  }
+  // Shows "… deleted. Undo" for a few seconds right after a delete.
+  function offerUndo(entry, message) {
+    showToast(message, { type: 'info', duration: 9000, action: { label: 'Undo', run: () => restoreFromTrash(entry.id) } });
+  }
+
+  // Puts the item back where it was in the list (or at the end if the list is now shorter).
+  const insertAt = (list, item, index) => { const copy = [...list]; copy.splice(Number.isInteger(index) ? Math.min(Math.max(index, 0), copy.length) : copy.length, 0, item); return copy; };
+
+  async function restoreFromTrash(id) {
+    const entry = loadTrash().find(item => item.id === id);
+    if (!entry) { showToast('That item is no longer in the trash.', { type: 'error' }); return; }
+    try {
+      if (entry.kind === 'invoice') {
+        const exists = entry.data.invoiceNo && archivedInvoices.some(invoice => invoice.invoiceNo === entry.data.invoiceNo && invoice.status === entry.data.status);
+        if (exists) throw new Error(`${entry.label} already exists, so it was not restored again.`);
+        await persistInvoiceArchive(insertAt(archivedInvoices, entry.data, entry.index));
+      } else if (entry.kind === 'customer') {
+        if (importedCustomers.some(customer => customerDuplicateKey(customer) === customerDuplicateKey(entry.data))) throw new Error('A customer with the same name and details already exists.');
+        await persistCustomerList(insertAt(importedCustomers, entry.data, entry.index), true);
+      } else {
+        if (catalogItems.some(item => itemNameKey(item.name) === itemNameKey(entry.data.name))) throw new Error('An item with this name already exists.');
+        await persistCatalogItems(insertAt(catalogItems, entry.data, entry.index), true);
+      }
+      dropFromTrash(id);
+      showToast(`${entry.label} was restored.`, { type: 'success' });
+      render();
+      if (edSec && !$('#dashboardPage').hidden) openEditor(edSec);
+    } catch (error) {
+      console.error('Could not restore from the trash.', error);
+      showToast(error.message || 'Could not restore this item.', { type: 'error' });
+    }
+  }
+
+  function trashDetail(entry) {
+    const d = entry.data;
+    if (entry.kind === 'invoice') return [d.customerName, rs(d.total), d.invoiceDate ? dt(d.invoiceDate) : ''].filter(Boolean).join(' · ');
+    if (entry.kind === 'customer') return [d.phone, d.address].filter(Boolean).join(' · ');
+    return [d.hsn ? `HSN ${d.hsn}` : '', rs(d.rate), d.unit].filter(Boolean).join(' · ');
+  }
+
+  function trashPageHTML() {
+    const all = loadTrash();
+    const counts = Object.fromEntries(TRASH_KINDS.map(([key]) => [key, all.filter(entry => entry.kind === key).length]));
+    const tabs = TRASH_KINDS.map(([key, text]) => `<button type="button" class="archive-tab ${trashTab === key ? 'is-active' : ''}" role="tab" aria-selected="${trashTab === key}" data-trash-tab="${key}">${text} <span class="badge text-bg-secondary">${counts[key]}</span></button>`).join('');
+    const list = all.filter(entry => entry.kind === trashTab).sort((a, b) => b.deletedAt - a.deletedAt);
+    const rows = list.length ? list.map(entry => {
+      const left = Math.max(1, Math.ceil((entry.deletedAt + TRASH_DAYS * DAY_MS - Date.now()) / DAY_MS));
+      return `<tr>
+        <td><strong>${esc(entry.label)}</strong><div class="form-text m-0">${esc(trashDetail(entry))}</div></td>
+        <td>${esc(new Date(entry.deletedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }))}</td>
+        <td>${left} day${left === 1 ? '' : 's'}</td>
+        <td class="directory-row-actions"><div class="invoice-archive-actions">
+          <button type="button" class="btn btn-sm btn-outline-primary" data-trash-restore="${esc(entry.id)}">Restore</button>
+          <button type="button" class="btn btn-sm btn-outline-danger" data-trash-purge="${esc(entry.id)}">Delete forever</button>
+        </div></td></tr>`;
+    }).join('') : `<tr><td colspan="4" class="customer-directory-empty">Nothing here. Deleted invoices, customers and items stay in the trash for ${TRASH_DAYS} days so you can bring them back.</td></tr>`;
+    return `<div class="invoice-archive-heading">
+        <div><strong>Trash</strong><div class="form-text">Deleted things stay here for ${TRASH_DAYS} days. This list is kept in this browser. Restoring puts the item back in your data folder.</div></div>
+        <div class="customer-directory-tools"><button type="button" class="btn btn-sm btn-outline-danger" data-trash-empty ${all.length ? '' : 'disabled'}>Empty trash</button></div>
+      </div>
+      <div class="archive-tabs" role="tablist" aria-label="Deleted items">${tabs}</div>
+      <div class="customer-directory-table-wrap"><table class="table table-sm table-striped table-hover table-bordered align-middle">
+        <thead><tr><th>Name</th><th>Deleted</th><th>Kept for</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+  setTimeout(updateTrashBadge, 0);   // after the page code has finished loading
+
+
+  /* ---------- sample data: load example records, or remove them again ---------- */
+  function sampleRecords() {
+    const d = window.SAMPLE_DATA;
+    if (!d) throw new Error('The sample data file did not load. Reload the app and try again.');
+    return {
+      customers: parseCustomerCsv(d.customers).customers,
+      items: parseItemCsv(d.items).items,
+      seller: parseProfileCsv('seller', d.seller),
+      bank: parseProfileCsv('bank', d.bank),
+      terms: parseProfileCsv('terms', d.terms)
+    };
+  }
+  const databaseConnectedForSample = () => customerCsvHandle && itemCsvHandle && profileCsvHandles.seller && profileCsvHandles.bank && profileCsvHandles.terms;
+
+  async function loadSampleData() {
+    if (!databaseConnectedForSample()) { showCsvHelp('all', 'Connect your database folder first. The sample data is added to it.'); return; }
+    try {
+      const sample = sampleRecords();
+      const seenCustomers = new Set(importedCustomers.map(customerDuplicateKey));
+      const newCustomers = sample.customers.filter(c => !seenCustomers.has(customerDuplicateKey(c)));
+      const seenItems = new Set(catalogItems.map(item => itemNameKey(item.name)));
+      const newItems = sample.items.filter(item => !seenItems.has(itemNameKey(item.name)));
+      if (newCustomers.length) await persistCustomerList([...importedCustomers, ...newCustomers], true);
+      if (newItems.length) await persistCatalogItems([...catalogItems, ...newItems], true);
+      const added = { customers: newCustomers.length, items: newItems.length };
+      for (const kind of ['seller', 'bank', 'terms']) {
+        const have = new Set(profileList(kind).map(p => profileIdentity(kind, p)));
+        const fresh = sample[kind].filter(p => !have.has(profileIdentity(kind, p)));
+        if (fresh.length) await persistProfiles(kind, [...profileList(kind), ...fresh]);
+        added[kind] = fresh.length;
+      }
+      const total = Object.values(added).reduce((a, b) => a + b, 0);
+      showToast(total ? `Sample data added: ${added.customers} customers, ${added.items} items, ${added.seller} sellers, ${added.bank} bank entries.` : 'The sample data is already there.', { type: total ? 'success' : 'info', duration: 7000 });
+      render();
+      if (setupWizard) renderSetupStep(); else if (edSec && !$('#dashboardPage').hidden) openEditor(edSec);
+    } catch (error) {
+      console.error('Could not load the sample data.', error);
+      showToast(error.message || 'Could not load the sample data.', { type: 'error' });
+    }
+  }
+
+  async function removeSampleData() {
+    if (!databaseConnectedForSample()) { showCsvHelp('all', 'Connect your database folder first.'); return; }
+    try {
+      const sample = sampleRecords();
+      const customerKeys = new Set(sample.customers.map(customerDuplicateKey));
+      const itemKeys = new Set(sample.items.map(item => itemNameKey(item.name)));
+      const keepCustomers = importedCustomers.filter(c => !customerKeys.has(customerDuplicateKey(c)));
+      const keepItems = catalogItems.filter(item => !itemKeys.has(itemNameKey(item.name)));
+      const removed = { customers: importedCustomers.length - keepCustomers.length, items: catalogItems.length - keepItems.length };
+      if (removed.customers) await persistCustomerList(keepCustomers, true);
+      if (removed.items) await persistCatalogItems(keepItems, true);
+      for (const kind of ['seller', 'bank', 'terms']) {
+        const gone = new Set(sample[kind].map(p => profileIdentity(kind, p)));
+        const keep = profileList(kind).filter(p => !gone.has(profileIdentity(kind, p)));
+        removed[kind] = profileList(kind).length - keep.length;
+        if (removed[kind]) await persistProfiles(kind, keep);
+      }
+      const total = Object.values(removed).reduce((a, b) => a + b, 0);
+      showToast(total ? `Sample data removed: ${removed.customers} customers, ${removed.items} items, ${removed.seller} sellers, ${removed.bank} bank entries. Anything you changed or added yourself was kept.` : 'No sample data was found.', { type: total ? 'success' : 'info', duration: 8000 });
+      render();
+      if (edSec && !$('#dashboardPage').hidden) openEditor(edSec);
+    } catch (error) {
+      console.error('Could not remove the sample data.', error);
+      showToast(error.message || 'Could not remove the sample data.', { type: 'error' });
     }
   }
 
@@ -4273,7 +4891,8 @@ Choose Cancel if this is the wrong folder.`)) return;
     refreshCsvConnectionStatus();
     bootstrap.Modal.getOrCreateInstance($('#csvHelpModal')).hide();
     render();
-    if (edSec === 'invoiceArchive' && !$('#dashboardPage').hidden) openEditor('invoiceArchive');
+    if (databaseIsEmpty && !String(S.seller.name || '').trim()) openSetupWizard();   // a new, empty folder: walk the user through the setup
+    else if (edSec === 'invoiceArchive' && !$('#dashboardPage').hidden) openEditor('invoiceArchive');
     if (createdFiles.length) showToast(`New data folder ready: created ${createdFiles.join(', ')}. Start with Business & Invoice Setup.`, { type: 'success', duration: 9000 });
     folderNotes.forEach(note => showToast(note, { type: 'info' }));
     return true;
@@ -4439,11 +5058,14 @@ Choose Cancel if this is the wrong folder.`)) return;
       return;
     }
     const status = $('#itemImportStatus');
+    const removedItem = catalogItems[index];
     try {
       await persistCatalogItems(catalogItems.filter((_, itemIndex) => itemIndex !== index), true);
+      const entry = removedItem ? addToTrash('item', removedItem.name || 'Item', removedItem, index) : null;
       selectedItems.clear();
       render();
       openEditor('itemDirectory');
+      if (entry) offerUndo(entry, `${entry.label} was deleted.`);
     } catch (error) {
       console.error('Could not remove catalog item.', error);
       status.className = 'customer-import-status error';
@@ -5522,10 +6144,12 @@ function termsEditor() {
 }
 
 const SETUP_STEPS = [
-  { section: 'seller', title: 'Seller information', intro: 'Add your business details. These appear at the top of every invoice.' },
+  { section: 'seller', exclude: ['logo'], title: 'Business details', intro: 'Add your business details. These appear at the top of every invoice.' },
+  { section: 'seller', only: ['logo'], title: 'Logo', intro: 'Add your logo. It is optional, and it shows beside your address on every invoice.' },
   { section: 'bank', title: 'Bank & UPI', intro: 'Add payment details so customers know how to pay you.' },
   { section: 'sign', title: 'Signature', intro: 'Add a signature image and the name shown below it.' },
-  { section: 'terms', title: 'Terms & conditions', intro: 'Add the terms that should appear on your invoices.' }
+  { section: 'terms', title: 'Terms & conditions', intro: 'Add the terms that should appear on your invoices.' },
+  { section: 'first', title: 'Your first invoice', intro: 'Your business is set up. Now create your first invoice.' }
 ];
 let edSec = null;
 let setupWizard = false;
@@ -5723,6 +6347,8 @@ function openEditor(sec) {
           : sec === 'itemDirectory' ? 'Item Details'
             : sec === 'invoiceTemplates' ? 'Invoice Templates'
             : sec === 'backup' ? 'Backup & Restore'
+            : sec === 'reports' ? 'Reports'
+            : sec === 'trash' ? 'Trash'
             : sec === 'invoiceArchive' ? 'View All Invoices'
                 : SECT[sec]?.[0] || 'Invoice Settings';
   document.title = `${pageTitle} | GST Invoice Generator`;
@@ -5734,6 +6360,8 @@ function openEditor(sec) {
     customerDirectory: 'Import, add, edit, and manage customers saved in your local directory.',
     itemDirectory: 'Import, add, edit, and manage products and services in your local catalog.',
     invoiceArchive: 'Search, preview, and manage saved invoice records.',
+    trash: 'Deleted invoices, customers and items. Restore them or delete them for good.',
+    reports: 'See your sales by customer, item and month, your best customers and items, and a revenue chart.',
     invoiceTemplates: 'Pick the invoice layout and style used for new invoices.',
     backup: 'Download a ZIP of all your CSV files, restore from one, and set a backup reminder.',
     bank: 'Manage bank transfer and UPI payment details printed on invoices.',
@@ -5747,6 +6375,8 @@ function openEditor(sec) {
     : sec === 'itemDirectory' ? 'Item Details'
     : sec === 'invoiceTemplates' ? 'Invoice Templates'
     : sec === 'backup' ? 'Backup & Restore'
+    : sec === 'reports' ? 'Reports'
+    : sec === 'trash' ? 'Trash'
     : sec === 'invoiceArchive' ? 'View All Invoices'
     : sec === 'terms' ? 'Terms & Conditions'
         : SECT[sec]?.[0] || 'Invoice settings';
@@ -5758,7 +6388,9 @@ function openEditor(sec) {
           : sec === 'invoiceTemplates' ? invoiceTemplatesHTML()
           : sec === 'backup' ? backupPageHTML()
           : sec === 'invoiceArchive' ? invoiceArchiveHTML()
-          : SECT[sec][1].map(field => fieldHTML(sec, field)).join('') + (sec === 'meta' ? numberingSettingsHTML() : '');
+          : sec === 'reports' ? reportsPageHTML()
+          : sec === 'trash' ? trashPageHTML()
+          : (sec === 'meta' ? '<div class="meta-fields-grid">' : '') + SECT[sec][1].map(field => fieldHTML(sec, field)).join('') + (sec === 'meta' ? '</div>' + numberingSettingsHTML() : '');
   refreshCsvConnectionStatus();
   $('#edBody').innerHTML = `<section class="dashboard-card">${content}</section>`;
   if (sec === 'invoiceTemplates') fitTemplatePreviews();
@@ -5803,10 +6435,11 @@ function renderSetupStep(message = '') {
   refreshCsvConnectionStatus();
   const fields = step.section === 'terms'
     ? termsEditor()
-    : SECT[step.section][1].map(field => fieldHTML(step.section, field)).join('');
+    : step.section === 'first' ? setupFirstInvoiceHTML()
+    : SECT[step.section][1].filter(field => step.only ? step.only.includes(field[0]) : !(step.exclude || []).includes(field[0])).map(field => fieldHTML(step.section, field)).join('');
   const back = setupStep > 0 ? '<button class="btn btn-outline-secondary" type="button" data-setup-back>Back</button>' : '<span></span>';
   const forward = setupStep === SETUP_STEPS.length - 1
-    ? '<button class="btn btn-primary" type="button" data-setup-finish>Finish setup</button>'
+    ? '<button class="btn btn-primary" type="button" data-setup-finish>Create my first invoice</button>'
     : '<button class="btn btn-primary" type="button" data-setup-next>Next</button>';
   $('#edBody').innerHTML = `
     <section class="dashboard-card setup-wizard-page">
@@ -5822,6 +6455,27 @@ function renderSetupStep(message = '') {
     </div>
     </section>
   `;
+}
+
+// The last wizard step: a short checklist and the ways to get going.
+function setupFirstInvoiceHTML() {
+  const done = ok => `<span class="setup-check ${ok ? 'is-done' : ''}" aria-hidden="true">${ok ? '✓' : '–'}</span>`;
+  const row = (ok, text, note) => `<li>${done(ok)}<span>${text}${note ? ` <span class="text-muted">${note}</span>` : ''}</span></li>`;
+  return `<div class="setup-first">
+    <h3>You are almost ready</h3>
+    <ul class="setup-checklist">
+      ${row(Boolean(String(S.seller.name || '').trim()), 'Business details')}
+      ${row(Boolean(S.seller.logo), 'Logo', S.seller.logo ? '' : '(optional)')}
+      ${row([S.bank.bank, S.bank.acc, S.bank.upi].some(v => String(v || '').trim()), 'Bank & UPI', '(optional)')}
+      ${row(Boolean(S.sign.sig), 'Signature', '(optional)')}
+      ${row((S.terms.list || []).some(t => String(t || '').trim()), 'Terms & conditions', '(optional)')}
+    </ul>
+    <p>Press <b>Create my first invoice</b>. On the invoice page, click the customer box to add your first customer, and the item box to add your first item.</p>
+    <div class="setup-first-sample">
+      <div><strong>Want to look around first?</strong><div class="form-text">Add example customers, items, sellers and bank details. They are made up. You can remove them any time in Backup &amp; Restore.</div></div>
+      <button type="button" class="btn btn-outline-primary" data-sample-load>Load sample data</button>
+    </div>
+  </div>`;
 }
 
 function showSetupStepError(message, section = setupStep) {
@@ -6553,11 +7207,12 @@ document.addEventListener('input', e => {
     if (error) error.textContent = '';
     S.items[row].qty = value;
     save();
+    if (S.items[row].qty !== value) { e.target.value = S.items[row].qty; if (error) error.textContent = `Only ${S.items[row].qty} in stock.`; }
     const unit = QUANTITY_UNITS.includes(S.items[row].unit) ? S.items[row].unit : 'Nos';
     const toggleLabel = surface.querySelector(`[data-quantity-toggle="${row}"] .quantity-unit-label`);
     const printQuantity = surface.querySelectorAll('.print-only-td')[row];
-    if (toggleLabel) toggleLabel.textContent = `${value} ${unit}`;
-    if (printQuantity) printQuantity.textContent = `${value} ${unit}`;
+    if (toggleLabel) toggleLabel.textContent = `${S.items[row].qty} ${unit}`;
+    if (printQuantity) printQuantity.textContent = `${S.items[row].qty} ${unit}`;
     return;
   }
   if (e.target.dataset.custpick) {
@@ -6961,6 +7616,66 @@ $('#edBody').addEventListener('change', e => {
     if (t.dataset.archiveFrom !== undefined) archiveFrom = t.value; else archiveTo = t.value;
     directoryPagination.invoice.page = 1;
     refreshInvoiceArchive();
+  }
+});
+
+$('#edBody').addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.reportRange !== undefined) {
+    reportRange = t.value;
+    if (reportRange === 'custom' && !reportFrom && !reportTo) [reportFrom, reportTo] = monthBounds(0);
+    openEditor('reports');
+  } else if (t.dataset.reportFrom !== undefined || t.dataset.reportTo !== undefined) {
+    if (t.dataset.reportFrom !== undefined) reportFrom = t.value; else reportTo = t.value;
+    refreshReports();
+  }
+});
+
+$('#edBody').addEventListener('click', e => {
+  const t = e.target;
+  const chart = t.closest('[data-report-chart]');
+  if (chart) { reportChartBy = chart.dataset.reportChart; refreshReports(); return; }
+  const group = t.closest('[data-report-group]');
+  if (group) { reportGroup = group.dataset.reportGroup; refreshReports(); return; }
+  const type = t.closest('[data-report-type]');
+  if (type) { reportType = type.dataset.reportType; reportParty = ''; refreshReports(); return; }
+  const party = t.closest('[data-report-party]');
+  if (party) { reportParty = party.dataset.reportParty; refreshReports(); return; }
+  const exportButton = t.closest('[data-report-export]');
+  if (exportButton && !exportButton.disabled) reportExport(exportButton.dataset.reportExport);
+});
+
+$('#edBody').addEventListener('click', e => {
+  const t = e.target;
+  const tab = t.closest('[data-trash-tab]');
+  if (tab) { trashTab = tab.dataset.trashTab; openEditor('trash'); return; }
+  const restore = t.closest('[data-trash-restore]');
+  if (restore) { restoreFromTrash(restore.dataset.trashRestore); return; }
+  const purge = t.closest('[data-trash-purge]');
+  if (purge) {
+    const entry = loadTrash().find(item => item.id === purge.dataset.trashPurge);
+    if (!entry) return;
+    confirmDestructiveAction({
+      title: 'Delete forever?', message: `${entry.label} will be deleted for good. It cannot be brought back.`, confirmLabel: 'Delete forever',
+      action: () => { dropFromTrash(entry.id); openEditor('trash'); }
+    });
+    return;
+  }
+  if (t.closest('[data-trash-empty]')) {
+    confirmDestructiveAction({
+      title: 'Empty the trash?', message: 'Everything in the trash will be deleted for good. It cannot be brought back.', confirmLabel: 'Empty trash',
+      action: () => { saveTrash([]); updateTrashBadge(); openEditor('trash'); }
+    });
+  }
+});
+
+$('#edBody').addEventListener('click', e => {
+  if (e.target.closest('[data-sample-load]')) loadSampleData();
+  else if (e.target.closest('[data-sample-remove]')) {
+    confirmDestructiveAction({
+      title: 'Remove the sample data?', message: 'The example customers, items, sellers and bank entries that are still unchanged will be removed. Your own data is kept.',
+      confirmLabel: 'Remove sample data', action: () => removeSampleData()
+    });
   }
 });
 
@@ -7614,7 +8329,7 @@ function startToastClock(toast) {
 }
 
 // type: 'success', 'error' or 'info'. source: the status line the message came from (a newer message replaces its older toast).
-function showToast(message, { type = 'info', source = null, duration = TOAST_VISIBLE_MS } = {}) {
+function showToast(message, { type = 'info', source = null, duration = TOAST_VISIBLE_MS, action = null } = {}) {
   const text = String(message ?? '').trim();
   if (!text) return null;
   const layer = toastLayerElement();
@@ -7633,6 +8348,15 @@ function showToast(message, { type = 'info', source = null, duration = TOAST_VIS
   toast.dataset.type = type;
   toast._duration = duration;
   toast.querySelector('.app-toast-text').textContent = text;
+  toast.querySelector('.app-toast-action')?.remove();
+  if (action) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'app-toast-action';
+    button.textContent = action.label;
+    button.addEventListener('click', () => { dismissToast(toast); action.run(); });
+    toast.querySelector('.app-toast-text').after(button);
+  }
   startToastClock(toast);
   return toast;
 }

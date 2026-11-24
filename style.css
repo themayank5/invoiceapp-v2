@@ -7981,3 +7981,51 @@ body.dashboard-mode .first-run-notice { display: none !important; }
   .invoice-body-settings .quote-toggle-setting { margin-left: 0; padding-left: 14px; flex: 0 0 auto; white-space: nowrap; }
   .invoice-body-settings .setting-label { white-space: nowrap; }
 }
+
+/* Invoice details page: two fields per line (Invoice # + date, due date + place of supply) */
+.meta-fields-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
+.meta-fields-grid > .mb-3 { min-width: 0; }
+@media (max-width: 640px) { .meta-fields-grid { grid-template-columns: 1fr; } }
+
+/* Reports page */
+.rp-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 18px; margin: 16px 0; }
+.rp-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.rp-toggle { display: inline-flex; gap: 6px; }
+.rp-empty { padding: 24px 8px; text-align: center; color: #64748b; list-style: none; }
+.rp-chart { display: flex; align-items: stretch; gap: 8px; height: 230px; padding-top: 4px; overflow-x: auto; }
+.rp-col { flex: 1 1 0; min-width: 34px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.rp-track { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; border-bottom: 1px solid #cbd5e1; }
+.rp-bar { width: min(100%, 36px); background: #2563eb; border-radius: 4px 4px 0 0; transition: filter .15s; }
+.rp-col:hover .rp-bar { filter: brightness(0.85); }
+.rp-val { font-size: 11px; color: #334155; min-height: 14px; white-space: nowrap; font-weight: 600; }
+.rp-lbl { font-size: 11px; color: #64748b; white-space: nowrap; }
+.rp-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.rp-two .rp-card { margin: 0 0 16px; }
+.rp-top { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.rp-top-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.rp-top-rank { width: 24px; height: 24px; border-radius: 50%; background: #eff6ff; color: #1d4ed8; font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+.rp-top-name { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-top-meter { height: 6px; border-radius: 3px; background: #e2e8f0; margin-top: 4px; overflow: hidden; }
+.rp-top-meter span { display: block; height: 100%; background: #2563eb; border-radius: 3px; }
+.rp-top-value { font-size: 13px; font-weight: 700; white-space: nowrap; }
+.report-table tfoot th { background: #f1f5f9; }
+@media (max-width: 800px) { .rp-two { grid-template-columns: 1fr; } }
+
+.rp-types { margin-top: 14px; }
+.rp-export { display: inline-flex; gap: 6px; }
+.report-party-link { font-weight: 600; text-decoration: none; text-align: left; }
+.report-party-link:hover { text-decoration: underline; }
+
+/* Undo button inside a toast, and the Trash count in the sidebar */
+.app-toast-action { background: transparent; border: 1px solid rgba(255,255,255,.55); color: inherit; border-radius: 6px; padding: 2px 10px; font-size: 12px; font-weight: 700; margin-left: 10px; cursor: pointer; }
+.app-toast-action:hover { background: rgba(255,255,255,.15); }
+.nav-badge { margin-left: auto; background: #ef4444; color: #fff; border-radius: 999px; font-size: 11px; font-weight: 700; padding: 1px 7px; min-width: 20px; text-align: center; }
+.nav-badge[hidden] { display: none; }
+
+/* Setup wizard: last step */
+.setup-first h3 { font-size: 20px; margin-bottom: 12px; }
+.setup-checklist { list-style: none; padding: 0; margin: 0 0 16px; display: grid; gap: 8px; }
+.setup-checklist li { display: flex; align-items: center; gap: 10px; }
+.setup-check { width: 22px; height: 22px; border-radius: 50%; background: #e2e8f0; color: #64748b; display: grid; place-items: center; font-size: 12px; font-weight: 800; }
+.setup-check.is-done { background: #dcfce7; color: #15803d; }
+.setup-first-sample { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 20px; padding: 14px 16px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #f8fafc; }
