@@ -685,12 +685,12 @@ function backupPageHTML() {
     </div>
     <div class="backup-card">
       <h2>Sample data</h2>
-      <p>Not sure what to enter? Add example customers, items, sellers and bank details to see how the app works. They are made up.
+      <p>Not sure what to enter? Add example customers, items, a sample business (with logo and signature), invoices, quotations and drafts to see how every feature works, reports included. They are made up.
       <div class="d-flex flex-wrap gap-2">
         <button type="button" class="btn btn-outline-primary" data-sample-load ${connected ? '' : 'disabled'}>Load sample data</button>
         <button type="button" class="btn btn-outline-danger" data-sample-remove ${connected ? '' : 'disabled'}>Remove sample data</button>
       </div>
-      <p class="backup-note">Removing only takes out the example records that are still unchanged. Your own customers, items and invoices are kept.</p>
+      <p class="backup-note">Removing takes out the example records that are still unchanged, and puts the invoice numbers and stock back. Your own customers, items and invoices are kept.</p>
     </div>
     <div class="backup-status" id="backupStatus" role="status" hidden></div>
   </div>`;
@@ -4180,7 +4180,61 @@ function save() {
       terms: parseProfileCsv('terms', d.terms)
     };
   }
-  const databaseConnectedForSample = () => customerCsvHandle && itemCsvHandle && profileCsvHandles.seller && profileCsvHandles.bank && profileCsvHandles.terms;
+  const databaseConnectedForSample = () => customerCsvHandle && itemCsvHandle && invoiceCsvHandle && profileCsvHandles.seller && profileCsvHandles.bank && profileCsvHandles.terms;
+
+  /* The sample invoices: built from the plan in sample-data.js, dated back from today so every report period has data. */
+  const SAMPLE_META_KEY = 'invoicegen_sample_meta_v1';
+  function sampleInvoiceRecords(sample) {
+    const data = window.SAMPLE_DATA;
+    const seller = sample.seller.find(p => p.name === 'Sunrise Traders') || sample.seller[0];
+    const bank = sample.bank[0], terms = sample.terms[0];
+    const today = new Date();
+    const dateOf = days => isoDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - days));
+    const nextSeq = {};
+    const numberFor = (date, quote) => {   // continues the numbers already in use, one series per financial year
+      const fy = financialYearLabel(date), key = quote ? `Q:${fy}` : fy;
+      if (nextSeq[key] === undefined) nextSeq[key] = parseFinancialYearNumber(nextInvoiceNumber(date, { quote })).seq;
+      return formatInvoiceNumber(fy, nextSeq[key]++, quote);
+    };
+    const keep = S;
+    const records = [];
+    try {
+      data.plan.forEach(entry => {
+        const customer = sample.customers.find(c => c.name === entry.cust);
+        if (!customer) return;
+        const date = dateOf(entry.d), kind = entry.kind;
+        const state = blankInvoice();
+        state.seller = { ...state.seller, ...structuredClone(seller) };
+        state.bank = { ...state.bank, ...structuredClone(bank) };
+        state.terms = { list: [...(terms?.terms || [])] };
+        state.sign = { sig: data.signature, companyName: seller.name };
+        state.meta = { no: '', date, due: kind === 'quote' ? '' : dateOf(entry.d - 15), pos: String(customer.gstin || '').slice(0, 2) || '19', ...(kind === 'quote' ? { valid: dateOf(entry.d - 15) } : {}) };
+        state.customer = { name: customer.name, gstin: customer.gstin || '', phone: customer.phone || '', email: customer.email || '', billing: customer.billing || customer.address || '', priceList: customer.priceList, contacts: structuredClone(customer.contacts || []), shippingAddresses: structuredClone(customer.shippingAddresses || []), active: true, shipSame: true, shipping: '', shippingPhone: '', shippingEmail: '' };
+        state.items = entry.lines.map(([name, qty]) => {
+          const item = sample.items.find(i => i.name === name);
+          return { name, hsn: item.hsn, rate: itemRateFor(item, customer.priceList), qty, unit: normalizeItemUnit(item.unit), unitExplicit: true, gst: normalizeItemGst(item.gst), disc: 0 };
+        });
+        state.discount = entry.discount ? { type: 'percent', value: String(entry.discount) } : { type: 'percent', value: '' };
+        state.round = Boolean(entry.round);
+        state.docType = kind === 'quote' ? 'quotation' : 'invoice';
+        state.watermark = kind === 'draft' ? 'draft' : kind === 'quote' ? '' : (entry.paid ? 'paid' : 'notpaid');
+        const invoiceNo = kind === 'draft' ? '' : numberFor(date, kind === 'quote');
+        state.meta.no = invoiceNo;
+        S = state;
+        const total = calc().total;
+        S = keep;
+        const snapshot = { ...structuredClone(state), paper: '', sample: true };
+        if (kind === 'draft') snapshot.draftId = newDraftId();
+        records.push({ invoiceNo, customerName: customer.name, total, invoiceDate: date, status: kind === 'saved' ? 'saved' : kind === 'quote' ? 'quotation' : 'draft', snapshot });
+      });
+    } finally { S = keep; }
+    data.plan.forEach((entry, index) => {   // link a quotation to the invoice it became
+      if (entry.convertedTo === undefined || !records[index] || !records[entry.convertedTo]) return;
+      records[index].snapshot.convertedTo = records[entry.convertedTo].invoiceNo;
+      records[entry.convertedTo].snapshot.quoteRef = records[index].invoiceNo;
+    });
+    return records;
+  }
 
   async function loadSampleData() {
     if (!databaseConnectedForSample()) { showCsvHelp('all', 'Connect your database folder first. The sample data is added to it.'); return false; }
@@ -4199,8 +4253,20 @@ function save() {
         if (fresh.length) await persistProfiles(kind, [...profileList(kind), ...fresh]);
         added[kind] = fresh.length;
       }
+      added.invoices = 0;
+      if (!archivedInvoices.some(invoice => invoice.snapshot?.sample)) {
+        try {   // remember the invoice numbers as they were, so removing the sample puts them back
+          if (!localStorage.getItem(SAMPLE_META_KEY)) localStorage.setItem(SAMPLE_META_KEY, JSON.stringify({ counters: numbering.counters, ignored: numbering.ignored }));
+        } catch (error) { /* storage blocked */ }
+        const records = sampleInvoiceRecords(sample);
+        await persistInvoiceArchive([...archivedInvoices, ...records]);
+        records.filter(r => r.status !== 'draft').forEach(r => noteInvoiceNumberUsed(r.invoiceNo));
+        added.invoices = records.length;
+        if (numbering.auto && !archivePreviewInvoice) S.meta.no = nextInvoiceNumber(S.meta.date);   // the invoice being typed must not reuse a sample number
+        save();
+      }
       const total = Object.values(added).reduce((a, b) => a + b, 0);
-      showToast(total ? `Sample data added: ${added.customers} customers, ${added.items} items, ${added.seller} sellers, ${added.bank} bank entries.` : 'The sample data is already there.', { type: total ? 'success' : 'info', duration: 7000 });
+      showToast(total ? `Sample data added: ${added.customers} customers, ${added.items} items, ${added.invoices} invoices and quotations, ${added.seller} sellers, ${added.bank} bank entries.` : 'The sample data is already there.', { type: total ? 'success' : 'info', duration: 7000 });
       setSampleMode(true);
       render();
       if (setupWizard) renderSetupStep(); else if (edSec && !$('#dashboardPage').hidden) openEditor(edSec);
@@ -4216,11 +4282,23 @@ function save() {
     if (!databaseConnectedForSample()) { showCsvHelp('all', 'Connect your database folder first.'); return false; }
     try {
       const sample = sampleRecords();
+      const removed = { invoices: 0 };
+      const sampleInvoices = archivedInvoices.filter(invoice => invoice.snapshot?.sample);
+      if (sampleInvoices.length) {   // first, so the stock they used goes back
+        await persistInvoiceArchive(archivedInvoices.filter(invoice => !invoice.snapshot?.sample));
+        removed.invoices = sampleInvoices.length;
+        try {
+          const meta = JSON.parse(localStorage.getItem(SAMPLE_META_KEY) || 'null');
+          if (meta) { numbering.counters = meta.counters || {}; numbering.ignored = meta.ignored || []; saveNumbering(); }
+          localStorage.removeItem(SAMPLE_META_KEY);
+        } catch (error) { /* storage blocked */ }
+        if (numbering.auto && !archivePreviewInvoice) S.meta.no = nextInvoiceNumber(S.meta.date);
+      }
       const customerKeys = new Set(sample.customers.map(customerDuplicateKey));
       const itemKeys = new Set(sample.items.map(item => itemNameKey(item.name)));
       const keepCustomers = importedCustomers.filter(c => !customerKeys.has(customerDuplicateKey(c)));
       const keepItems = catalogItems.filter(item => !itemKeys.has(itemNameKey(item.name)));
-      const removed = { customers: importedCustomers.length - keepCustomers.length, items: catalogItems.length - keepItems.length };
+      removed.customers = importedCustomers.length - keepCustomers.length; removed.items = catalogItems.length - keepItems.length;
       if (removed.customers) await persistCustomerList(keepCustomers, true);
       if (removed.items) await persistCatalogItems(keepItems, true);
       for (const kind of ['seller', 'bank', 'terms']) {
@@ -4234,10 +4312,11 @@ function save() {
       if (sample.seller.some(p => p.name === S.seller.name)) S.seller = blank.seller;
       if (sample.bank.some(p => p.bank === S.bank.bank && p.upi === S.bank.upi)) S.bank = blank.bank;
       if (sample.terms.some(p => (p.terms || []).join('|') === (S.terms.list || []).join('|'))) S.terms = blank.terms;
+      if (S.sign?.sig && S.sign.sig === window.SAMPLE_DATA?.signature) S.sign = blank.sign;
       save();
       setSampleMode(false);
       const total = Object.values(removed).reduce((a, b) => a + b, 0);
-      showToast(total ? `Sample data removed: ${removed.customers} customers, ${removed.items} items, ${removed.seller} sellers, ${removed.bank} bank entries. Anything you changed or added yourself was kept.` : 'No sample data was found.', { type: total ? 'success' : 'info', duration: 8000 });
+      showToast(total ? `Sample data removed: ${removed.customers} customers, ${removed.items} items, ${removed.invoices} invoices and quotations, ${removed.seller} sellers, ${removed.bank} bank entries. Anything you changed or added yourself was kept.` : 'No sample data was found.', { type: total ? 'success' : 'info', duration: 8000 });
       render();
       if (edSec && !$('#dashboardPage').hidden) openEditor(edSec);
       return true;
@@ -6583,7 +6662,7 @@ function renderOnboarding(error = '') {
         <button type="button" class="onboard-choice" data-ob-sample>
           <span class="onboard-choice-icon" aria-hidden="true">🧪</span>
           <strong>Try it with sample data</strong>
-          <span>See how the app works with example customers, items and a sample business. You can remove it any time.</span>
+          <span>See how the app works with example customers, items, a sample business with logo and signature, and invoices, quotations and reports. You can remove it any time.</span>
         </button>
       </div>${err}`;
     footer.innerHTML = '<button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal">Skip for now</button>';
@@ -6687,6 +6766,7 @@ async function startSampleMode() {
     if (seller) S.seller = { ...S.seller, ...structuredClone(seller) };
     if (bank) S.bank = { ...S.bank, ...structuredClone(bank) };
     if (terms) S.terms = { ...S.terms, list: [...(terms.terms || [])] };
+    if (!S.sign?.sig && window.SAMPLE_DATA?.signature) S.sign = { sig: window.SAMPLE_DATA.signature, companyName: seller?.name || '' };
     save();
   }
   setSampleMode(true);
@@ -6729,7 +6809,7 @@ document.addEventListener('click', async e => {
   }
   if (e.target.closest('#btnSampleRemove')) {
     confirmDestructiveAction({
-      title: 'Remove the sample data?', message: 'The example customers, items, sellers and bank entries that are still unchanged will be removed. Your own data is kept.',
+      title: 'Remove the sample data?', message: 'The example customers, items, invoices, sellers and bank entries that are still unchanged will be removed. Your own data is kept.',
       confirmLabel: 'Remove sample data', action: () => removeSampleData()
     });
   }
@@ -8859,6 +8939,22 @@ window.addEventListener('appinstalled', () => {
   const button = $('#btnInstallApp');
   if (button) button.hidden = true;
   showToast('InvoiceGen is installed. Open it from your desktop or Start menu, then use Connect Database to pick your data folder.', { type: 'success', duration: 9000 });
+});
+// An installed app window has no browser toolbar, so it gets its own Refresh button.
+const runningAsInstalledApp = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+function updateRefreshButton() { const b = $('#btnRefreshApp'); if (b) b.hidden = !runningAsInstalledApp(); }
+updateRefreshButton();
+if (window.matchMedia) { const q = matchMedia('(display-mode: standalone)'); if (q.addEventListener) q.addEventListener('change', updateRefreshButton); }
+document.addEventListener('click', async e => {
+  if (!e.target.closest?.('#btnRefreshApp')) return;
+  const button = e.target.closest('#btnRefreshApp');
+  button.disabled = true;
+  button.textContent = 'Refreshing…';
+  try {   // look for a newer version first, then reload
+    const registration = await navigator.serviceWorker?.getRegistration();
+    if (registration) await Promise.race([registration.update(), new Promise(resolve => setTimeout(resolve, 3000))]);
+  } catch (error) { /* offline: just reload */ }
+  location.reload();
 });
 document.addEventListener('click', async e => {
   if (!e.target.closest?.('#btnInstallApp') || !installPromptEvent) return;

@@ -8068,3 +8068,6 @@ body.dashboard-mode .first-run-notice { display: none !important; }
 /* Business & Invoice Setup tables: the profile in use is green */
 .dashboard-card .profile-active-row > *, .profile-active-row > * { background-color: #f0fdf4 !important; color: inherit; }
 .profile-active-btn.btn-success:disabled, .profile-active-btn.btn-success.disabled { background-color: #16a34a; border-color: #16a34a; color: #fff; opacity: 1; font-weight: 600; }
+
+.topbar-lang-setting .topbar-refresh-btn { white-space: nowrap; margin-left: 10px; }
+.topbar-refresh-btn[hidden] { display: none; }

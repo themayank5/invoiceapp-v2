@@ -2,7 +2,7 @@
    Keeps a copy of the app's own files so it starts without internet.
    Strategy: network first (you always get the latest version when online), saved copy when offline.
    Your data is NOT handled here: customers, items and invoices are read and written in your CSV folder by the app itself. */
-const CACHE = 'invoicegen-app-v8';
+const CACHE = 'invoicegen-app-v10';
 const APP_FILES = [
   './', 'index.html', 'landing.css', 'landing.js', 'lib/landing.tailwind.css', 'app.html', 'style.css', 'app.js', 'i18n.js', 'sample-data.js', 'folder-data.js', 'manifest.webmanifest', 'sample-data/InvoiceGen-sample-data.zip',
   'lib/bootstrap.min.css', 'lib/bootstrap.bundle.min.js', 'lib/qrcode.min.js', 'lib/html2pdf.bundle.min.js', 'lib/jszip.min.js',
