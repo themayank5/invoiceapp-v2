@@ -4915,6 +4915,31 @@ function save() {
     }
   }
 
+  // Unzipping on Windows often gives a folder inside a folder, and the data is in the inner one.
+  // True when the folder has all six data files and at least one of them has a record.
+  async function folderDataState(directory) {
+    let found = 0, records = false;
+    for (const kind of CSV_FILES) {
+      try {
+        const text = await (await (await directory.getFileHandle(`${kind}.csv`)).getFile()).text();
+        found++;
+        if (text.split('\n').filter(line => line.trim()).length > 1) records = true;
+      } catch (error) { if (error.name !== 'NotFoundError') throw error; }
+    }
+    return { complete: found === CSV_FILES.length, records };
+  }
+  // The chosen folder has no records, but exactly one folder inside it does: use that one.
+  async function innerDataFolder(directory) {
+    if (typeof directory.values !== 'function' || (await folderDataState(directory)).records) return null;
+    const matches = [];
+    for await (const entry of directory.values()) {
+      if (entry.kind !== 'directory') continue;
+      const state = await folderDataState(entry);
+      if (state.complete && state.records) matches.push(entry);
+    }
+    return matches.length === 1 ? matches[0] : null;
+  }
+
   async function connectAllCsvs(directoryHandle = null, {
     requestPermission = true,
     showPicker = true,
@@ -4942,6 +4967,11 @@ function save() {
 
       handles = {};
       if (pickedByUser) {
+        const inner = await innerDataFolder(directoryHandle);
+        if (inner) {
+          showToast(`Your data is in the folder “${inner.name}” inside “${directoryHandle.name}”, so that folder was connected.`, { type: 'info', duration: 9000 });
+          directoryHandle = inner;
+        }
         // A new, empty folder is fine: the app creates the data files itself. Ask first if the folder has none of them yet.
         const missing = [];
         for (const kind of CSV_FILES) {
