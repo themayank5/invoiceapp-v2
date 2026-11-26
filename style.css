@@ -8185,155 +8185,155 @@ body.dashboard-mode .first-run-notice { display: none !important; }
 
   /* seller / customer / bottom blocks: short by default */
   /* seller and customer cards always show everything. The invoice-details card and the shipping card open from a button. */
-  #sheets .sheet:not(.mo-meta) .m-meta-box { display: none !important; }
-  #sheets .sheet:not(.mo-ship) .Shipping1,
-  #sheets .sheet:not(.mo-ship) .lm-party:not(.cust-cell), #sheets .sheet:not(.mo-ship) .le-party:not(.cust-cell), #sheets .sheet:not(.mo-ship) .mn-party:not(.cust-cell), #sheets .sheet:not(.mo-ship) .cp-party:not(.cust-cell) { display: none !important; }
-#sheets .sheet:not(.mo-bottom) .m-bottom { display: none; }
-#sheets .sheet.mo-bottom .m-bottom { display: block; }
+  body:not(.printing) #sheets .sheet:not(.mo-meta) .m-meta-box { display: none !important; }
+  body:not(.printing) #sheets .sheet:not(.mo-ship) .Shipping1,
+  body:not(.printing) #sheets .sheet:not(.mo-ship) .lm-party:not(.cust-cell), body:not(.printing) #sheets .sheet:not(.mo-ship) .le-party:not(.cust-cell), body:not(.printing) #sheets .sheet:not(.mo-ship) .mn-party:not(.cust-cell), body:not(.printing) #sheets .sheet:not(.mo-ship) .cp-party:not(.cust-cell) { display: none !important; }
+body:not(.printing) #sheets .sheet:not(.mo-bottom) .m-bottom { display: none; }
+body:not(.printing) #sheets .sheet.mo-bottom .m-bottom { display: block; }
   .m-bottom-toggle { margin-top: 8px; }
 
   /* top of every template: one column */
-#sheets .sheet .lay-top, #sheets .sheet .lay-top > *, #sheets .sheet .blk.two, #sheets .sheet .sellerrow, #sheets .sheet .lm-band, #sheets .sheet .mn-head, #sheets .sheet .lm-parties, #sheets .sheet .le-parties, #sheets .sheet .mn-parties, #sheets .sheet .cp-parties, #sheets .sheet .cp-head { display: block !important; width: 100% !important; grid-template-columns: 1fr !important; }
-#sheets .sheet .blk.two > .cell, #sheets .sheet .sellerrow > .cell { width: 100% !important; border-right: 0 !important; }
-#sheets .sheet .logo { max-width: 120px; min-height: 0 !important; min-width: 0 !important; }
-#sheets .sheet .logo img { max-height: 56px; max-width: 120px; min-height: 0 !important; min-width: 0 !important; }
-#sheets .sheet .top h1, #sheets .sheet .lay-top h1 { font-size: 18px !important; }
+body:not(.printing) #sheets .sheet .lay-top, body:not(.printing) #sheets .sheet .lay-top > *, body:not(.printing) #sheets .sheet .blk.two, body:not(.printing) #sheets .sheet .sellerrow, body:not(.printing) #sheets .sheet .lm-band, body:not(.printing) #sheets .sheet .mn-head, body:not(.printing) #sheets .sheet .lm-parties, body:not(.printing) #sheets .sheet .le-parties, body:not(.printing) #sheets .sheet .mn-parties, body:not(.printing) #sheets .sheet .cp-parties, body:not(.printing) #sheets .sheet .cp-head { display: block !important; width: 100% !important; grid-template-columns: 1fr !important; }
+body:not(.printing) #sheets .sheet .blk.two > .cell, body:not(.printing) #sheets .sheet .sellerrow > .cell { width: 100% !important; border-right: 0 !important; }
+body:not(.printing) #sheets .sheet .logo { max-width: 120px; min-height: 0 !important; min-width: 0 !important; }
+body:not(.printing) #sheets .sheet .logo img { max-height: 56px; max-width: 120px; min-height: 0 !important; min-width: 0 !important; }
+body:not(.printing) #sheets .sheet .top h1, body:not(.printing) #sheets .sheet .lay-top h1 { font-size: 18px !important; }
   /* invoice number, date, place of supply, due date: two across */
-#sheets .sheet .meta, #sheets .sheet .lm-chips, #sheets .sheet .le-chips, #sheets .sheet .cp-chips, #sheets .sheet .mn-meta { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 6px 10px !important; }
-#sheets .sheet .meta > div:nth-child(odd) { font-size: 11px; color: #64748b; font-weight: 600; }
-#sheets .sheet .meta > div { padding: 2px 4px !important; border: 0 !important; }
-#sheets .sheet .meta-chip, #sheets .sheet .mn-meta-row { min-width: 0; }
-#sheets .sheet .cust-search-input { width: 100% !important; }
-#sheets .sheet .price-list-corner { position: static !important; margin-top: 6px; }
+body:not(.printing) #sheets .sheet .meta, body:not(.printing) #sheets .sheet .lm-chips, body:not(.printing) #sheets .sheet .le-chips, body:not(.printing) #sheets .sheet .cp-chips, body:not(.printing) #sheets .sheet .mn-meta { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 6px 10px !important; }
+body:not(.printing) #sheets .sheet .meta > div:nth-child(odd) { font-size: 11px; color: #64748b; font-weight: 600; }
+body:not(.printing) #sheets .sheet .meta > div { padding: 2px 4px !important; border: 0 !important; }
+body:not(.printing) #sheets .sheet .meta-chip, body:not(.printing) #sheets .sheet .mn-meta-row { min-width: 0; }
+body:not(.printing) #sheets .sheet .cust-search-input { width: 100% !important; }
+body:not(.printing) #sheets .sheet .price-list-corner { position: static !important; margin-top: 6px; }
 
   /* items: one card per row */
-#sheets .sheet table.items, #sheets .sheet table.items > tbody { display: block; width: 100%; border: 0; }
-#sheets .sheet table.items > thead { display: none; }
-#sheets .sheet table.items tr.m-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 10px; margin: 0 0 10px; padding: 10px; border: 1px solid #d5dbe3; border-radius: 12px; background: #fff; position: relative; }
-#sheets .sheet table.items tr.m-row > td { display: block; width: auto !important; padding: 0 !important; border: 0 !important; background: transparent !important; text-align: left !important; min-width: 0; }
-#sheets .sheet table.items tr.m-row > td:nth-child(1) { display: none; }                       /* # */
-#sheets .sheet table.items tr.m-row > td:nth-child(2) { grid-column: 1 / 3; grid-row: 1; }       /* item */
-#sheets .sheet table.items tr.m-row > td:nth-child(11) { grid-column: 3; grid-row: 1; justify-self: end; }   /* delete */
-#sheets .sheet table.items tr.m-row > td:nth-child(5) { grid-column: 1; grid-row: 2; }           /* qty */
-#sheets .sheet table.items tr.m-row > td:nth-child(4) { grid-column: 2; grid-row: 2; }           /* rate */
-#sheets .sheet table.items tr.m-row > td:nth-child(10) { grid-column: 3; grid-row: 2; font-weight: 700; text-align: right !important; align-self: end; } /* total */
-#sheets .sheet table.items tr.m-row > td:nth-child(6) { display: none; }                         /* print-only quantity */
-#sheets .sheet table.items tr.m-row > td:nth-child(3), #sheets .sheet table.items tr.m-row > td:nth-child(7), #sheets .sheet table.items tr.m-row > td:nth-child(8), #sheets .sheet table.items tr.m-row > td:nth-child(9) { display: none; grid-row: auto; }
-#sheets .sheet table.items tr.m-row.m-open > td:nth-child(3), #sheets .sheet table.items tr.m-row.m-open > td:nth-child(7), #sheets .sheet table.items tr.m-row.m-open > td:nth-child(8), #sheets .sheet table.items tr.m-row.m-open > td:nth-child(9) { display: block; }
-#sheets .sheet table.items tr.m-row.m-open > td:nth-child(3) { grid-column: 1; }
-#sheets .sheet table.items tr.m-row.m-open > td:nth-child(7) { grid-column: 2; }
-#sheets .sheet table.items tr.m-row.m-open > td:nth-child(8) { grid-column: 3; }
-#sheets .sheet table.items tr.m-row.m-open > td:nth-child(9) { grid-column: 1 / -1; font-size: 12.5px; color: #475569; }
+body:not(.printing) #sheets .sheet table.items, body:not(.printing) #sheets .sheet table.items > tbody { display: block; width: 100%; border: 0; }
+body:not(.printing) #sheets .sheet table.items > thead { display: none; }
+body:not(.printing) #sheets .sheet table.items tr.m-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 10px; margin: 0 0 10px; padding: 10px; border: 1px solid #d5dbe3; border-radius: 12px; background: #fff; position: relative; }
+body:not(.printing) #sheets .sheet table.items tr.m-row > td { display: block; width: auto !important; padding: 0 !important; border: 0 !important; background: transparent !important; text-align: left !important; min-width: 0; }
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(1) { display: none; }                       /* # */
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(2) { grid-column: 1 / 3; grid-row: 1; }       /* item */
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(11) { grid-column: 3; grid-row: 1; justify-self: end; }   /* delete */
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(5) { grid-column: 1; grid-row: 2; }           /* qty */
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(4) { grid-column: 2; grid-row: 2; }           /* rate */
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(10) { grid-column: 3; grid-row: 2; font-weight: 700; text-align: right !important; align-self: end; } /* total */
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(6) { display: none; }                         /* print-only quantity */
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(3), body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(7), body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(8), body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(9) { display: none; grid-row: auto; }
+body:not(.printing) #sheets .sheet table.items tr.m-row.m-open > td:nth-child(3), body:not(.printing) #sheets .sheet table.items tr.m-row.m-open > td:nth-child(7), body:not(.printing) #sheets .sheet table.items tr.m-row.m-open > td:nth-child(8), body:not(.printing) #sheets .sheet table.items tr.m-row.m-open > td:nth-child(9) { display: block; }
+body:not(.printing) #sheets .sheet table.items tr.m-row.m-open > td:nth-child(3) { grid-column: 1; }
+body:not(.printing) #sheets .sheet table.items tr.m-row.m-open > td:nth-child(7) { grid-column: 2; }
+body:not(.printing) #sheets .sheet table.items tr.m-row.m-open > td:nth-child(8) { grid-column: 3; }
+body:not(.printing) #sheets .sheet table.items tr.m-row.m-open > td:nth-child(9) { grid-column: 1 / -1; font-size: 12.5px; color: #475569; }
   /* small labels above the boxes */
-#sheets .sheet table.items tr.m-row > td:nth-child(5)::before, #sheets .sheet table.items tr.m-row > td:nth-child(4)::before, #sheets .sheet table.items tr.m-row > td:nth-child(10)::before,
-#sheets .sheet table.items tr.m-row > td:nth-child(3)::before, #sheets .sheet table.items tr.m-row > td:nth-child(7)::before, #sheets .sheet table.items tr.m-row > td:nth-child(8)::before, #sheets .sheet table.items tr.m-row > td:nth-child(9)::before { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #64748b; margin-bottom: 2px; }
-#sheets .sheet table.items tr.m-row > td:nth-child(5)::before { content: "Qty"; }
-#sheets .sheet table.items tr.m-row > td:nth-child(4)::before { content: "Rate"; }
-#sheets .sheet table.items tr.m-row > td:nth-child(10)::before { content: "Total"; }
-#sheets .sheet table.items tr.m-row > td:nth-child(3)::before { content: "HSN/SAC"; }
-#sheets .sheet table.items tr.m-row > td:nth-child(7)::before { content: "Value"; }
-#sheets .sheet table.items tr.m-row > td:nth-child(8)::before { content: "GST %"; }
-#sheets .sheet table.items tr.m-row > td:nth-child(9)::before { content: "Tax"; }
-#sheets .sheet table.items .inline-item-field, #sheets .sheet table.items .inline-gst, #sheets .sheet table.items .item-search-input, #sheets .sheet table.items .quantity-unit-toggle { width: 100% !important; min-width: 0; }
-#sheets .sheet table.items .inline-money-field { display: flex; width: 100%; }
-#sheets .sheet .item-picker-wrap { width: 100%; }
-#sheets .sheet table.items tr.m-row > td.item-name-cell { grid-column: 1 / -1 !important; position: static !important; padding-right: 142px !important; }
-  #sheets .sheet table.items tr.m-row > td.item-name-cell .m-toggle { position: absolute; top: 10px; right: 10px; margin: 0; height: 32px; width: 80px; justify-content: center; border-radius: 4px; padding: 0 8px; }
-  #sheets .sheet table.items tr.m-row > td:nth-child(11) { position: absolute !important; top: 10px; right: 98px; grid-column: auto !important; grid-row: auto !important; }
-  #sheets .sheet table.items tr.m-row > td:nth-child(11) .inline-del { height: 32px; min-width: 44px; }
-#sheets .sheet .items-footer { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
-#sheets .sheet .items-footer .inline-add-row { width: 100%; justify-content: center; padding: 10px; }
-#sheets .sheet .items-footer .wm-picker, #sheets .sheet .items-footer .inline-footer-right { width: 100%; }
-#sheets .sheet .inline-footer-right { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
-#sheets .sheet .inline-discount { flex-wrap: wrap; }
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(5)::before, body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(4)::before, body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(10)::before,
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(3)::before, body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(7)::before, body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(8)::before, body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(9)::before { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #64748b; margin-bottom: 2px; }
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(5)::before { content: "Qty"; }
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(4)::before { content: "Rate"; }
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(10)::before { content: "Total"; }
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(3)::before { content: "HSN/SAC"; }
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(7)::before { content: "Value"; }
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(8)::before { content: "GST %"; }
+body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(9)::before { content: "Tax"; }
+body:not(.printing) #sheets .sheet table.items .inline-item-field, body:not(.printing) #sheets .sheet table.items .inline-gst, body:not(.printing) #sheets .sheet table.items .item-search-input, body:not(.printing) #sheets .sheet table.items .quantity-unit-toggle { width: 100% !important; min-width: 0; }
+body:not(.printing) #sheets .sheet table.items .inline-money-field { display: flex; width: 100%; }
+body:not(.printing) #sheets .sheet .item-picker-wrap { width: 100%; }
+body:not(.printing) #sheets .sheet table.items tr.m-row > td.item-name-cell { grid-column: 1 / -1 !important; position: static !important; padding-right: 142px !important; }
+  body:not(.printing) #sheets .sheet table.items tr.m-row > td.item-name-cell .m-toggle { position: absolute; top: 10px; right: 10px; margin: 0; height: 32px; width: 80px; justify-content: center; border-radius: 4px; padding: 0 8px; }
+  body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(11) { position: absolute !important; top: 10px; right: 98px; grid-column: auto !important; grid-row: auto !important; }
+  body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(11) .inline-del { height: 32px; min-width: 44px; }
+body:not(.printing) #sheets .sheet .items-footer { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+body:not(.printing) #sheets .sheet .items-footer .inline-add-row { width: 100%; justify-content: center; padding: 10px; }
+body:not(.printing) #sheets .sheet .items-footer .wm-picker, body:not(.printing) #sheets .sheet .items-footer .inline-footer-right { width: 100%; }
+body:not(.printing) #sheets .sheet .inline-footer-right { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+body:not(.printing) #sheets .sheet .inline-discount { flex-wrap: wrap; }
 
   /* totals */
-#sheets .sheet .blk.tot { display: grid !important; grid-template-columns: 1fr auto !important; align-items: center; gap: 4px 12px; }
-#sheets .sheet .blk.tot > .m-toggle { grid-column: 1 / -1; justify-self: start; }
-#sheets .sheet .blk.tot .m-tax-rows { display: none; }
-#sheets .sheet.mo-tax .blk.tot .m-tax-rows { display: contents; }
-#sheets .sheet .blk.tot .big { font-size: 20px; }
-#sheets .sheet .blk.words { text-align: left !important; }
+body:not(.printing) #sheets .sheet .blk.tot { display: grid !important; grid-template-columns: 1fr auto !important; align-items: center; gap: 4px 12px; }
+body:not(.printing) #sheets .sheet .blk.tot > .m-toggle { grid-column: 1 / -1; justify-self: start; }
+body:not(.printing) #sheets .sheet .blk.tot .m-tax-rows { display: none; }
+body:not(.printing) #sheets .sheet.mo-tax .blk.tot .m-tax-rows { display: contents; }
+body:not(.printing) #sheets .sheet .blk.tot .big { font-size: 20px; }
+body:not(.printing) #sheets .sheet .blk.words { text-align: left !important; }
 }
 @media screen and (max-width: 767px) {
-  #sheets .sheet .mn-meta { grid-template-columns: 1fr !important; }
-  #sheets .sheet input.inv-date-input, #sheets .sheet .inv-date-cell { max-width: 100%; min-width: 0; }
+  body:not(.printing) #sheets .sheet .mn-meta { grid-template-columns: 1fr !important; }
+  body:not(.printing) #sheets .sheet input.inv-date-input, body:not(.printing) #sheets .sheet .inv-date-cell { max-width: 100%; min-width: 0; }
 }
-@media screen and (max-width: 767px) { #sheets .sheet .item-dropdown { width: calc(100vw - 64px) !important; max-width: none !important; } }
+@media screen and (max-width: 767px) { body:not(.printing) #sheets .sheet .item-dropdown { width: calc(100vw - 64px) !important; max-width: none !important; } }
 
 @media screen and (max-width: 767px) {
-  #sheets .sheet:not(.mo-wm) .wm-picker { display: none; }
-  #sheets .sheet .inline-discount { align-items: center; }
-  #sheets .sheet .inline-discount .m-toggle { margin: 0 0 0 4px; }
+  body:not(.printing) #sheets .sheet:not(.mo-wm) .wm-picker { display: none; }
+  body:not(.printing) #sheets .sheet .inline-discount { align-items: center; }
+  body:not(.printing) #sheets .sheet .inline-discount .m-toggle { margin: 0 0 0 4px; }
 }
 @media screen and (max-width: 767px) {
-  #sheets .sheet .inline-discount { flex-wrap: nowrap !important; gap: 6px; }
-  #sheets .sheet .inline-discount input[data-disc="value"] { width: 64px !important; min-width: 0; }
-  #sheets .sheet .inline-discount .inline-discount-title { font-size: 13px; }
-  #sheets .sheet .inline-discount .m-toggle { padding: 4px 8px; font-size: 12px; white-space: nowrap; margin-left: auto; }
+  body:not(.printing) #sheets .sheet .inline-discount { flex-wrap: nowrap !important; gap: 6px; }
+  body:not(.printing) #sheets .sheet .inline-discount input[data-disc="value"] { width: 64px !important; min-width: 0; }
+  body:not(.printing) #sheets .sheet .inline-discount .inline-discount-title { font-size: 13px; }
+  body:not(.printing) #sheets .sheet .inline-discount .m-toggle { padding: 4px 8px; font-size: 12px; white-space: nowrap; margin-left: auto; }
 }
 @media screen and (max-width: 767px) {
-  #sheets .sheet .mn-cols, #sheets .sheet .lm-bottom, #sheets .sheet .cp-cards, #sheets .sheet .le-cards { display: grid !important; grid-template-columns: 1fr !important; gap: 8px; }
-  #sheets .sheet .signbox img, #sheets .sheet .m-bottom img { max-width: 100% !important; height: auto; }
+  body:not(.printing) #sheets .sheet .mn-cols, body:not(.printing) #sheets .sheet .lm-bottom, body:not(.printing) #sheets .sheet .cp-cards, body:not(.printing) #sheets .sheet .le-cards { display: grid !important; grid-template-columns: 1fr !important; gap: 8px; }
+  body:not(.printing) #sheets .sheet .signbox img, body:not(.printing) #sheets .sheet .m-bottom img { max-width: 100% !important; height: auto; }
 }
 
 @media screen and (max-width: 767px) {
   /* seller card: "Invoice details" sits at the top right */
-  #sheets .sheet.tpl-classic .cell:has(> .m-seller) { position: relative; }
-  #sheets .sheet .m-seller > .comp-name { display: block; max-width: 100%; }
-  #sheets .sheet.tpl-classic .m-seller > .m-toggle { position: absolute; top: 8px; right: 8px; margin: 0; z-index: 1; }
+  body:not(.printing) #sheets .sheet.tpl-classic .cell:has(> .m-seller) { position: relative; }
+  body:not(.printing) #sheets .sheet .m-seller > .comp-name { display: block; max-width: 100%; }
+  body:not(.printing) #sheets .sheet.tpl-classic .m-seller > .m-toggle { position: absolute; top: 8px; right: 8px; margin: 0; z-index: 1; }
   /* customer card: picker + Edit + Clear on one line, Add Customer + Shipping address on the next */
-  #sheets .sheet .cust-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 6px; }
-  #sheets .sheet .cust-header > .cust-heading { flex: 0 0 100%; order: 0; }
-  #sheets .sheet .cust-header > .cust-picker-wrap { flex: 1 1 0; min-width: 110px; order: 1; }
-  #sheets .sheet .cust-header > .eb { order: 2; flex: 0 0 auto; margin: 0 !important; }
-  #sheets .sheet .cust-header > .cust-clear-btn { order: 3; flex: 0 0 auto; margin: 0 !important; }
-  #sheets .sheet .cust-header::after { content: ""; flex: 0 0 100%; height: 0; order: 4; }
-  #sheets .sheet .cust-header > .cust-add-btn { order: 5; flex: 0 0 auto; margin: 0 !important; }
-  #sheets .sheet .cust-header > .m-toggle { order: 6; flex: 0 0 auto; margin: 0; }
+  body:not(.printing) #sheets .sheet .cust-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 6px; }
+  body:not(.printing) #sheets .sheet .cust-header > .cust-heading { flex: 0 0 100%; order: 0; }
+  body:not(.printing) #sheets .sheet .cust-header > .cust-picker-wrap { flex: 1 1 0; min-width: 110px; order: 1; }
+  body:not(.printing) #sheets .sheet .cust-header > .eb { order: 2; flex: 0 0 auto; margin: 0 !important; }
+  body:not(.printing) #sheets .sheet .cust-header > .cust-clear-btn { order: 3; flex: 0 0 auto; margin: 0 !important; }
+  body:not(.printing) #sheets .sheet .cust-header::after { content: ""; flex: 0 0 100%; height: 0; order: 4; }
+  body:not(.printing) #sheets .sheet .cust-header > .cust-add-btn { order: 5; flex: 0 0 auto; margin: 0 !important; }
+  body:not(.printing) #sheets .sheet .cust-header > .m-toggle { order: 6; flex: 0 0 auto; margin: 0; }
 }
 @media screen and (max-width: 767px) {
   /* every button in the customer card is as tall as the customer box; Shipping address goes to the right */
-  #sheets .sheet .cust-header > .eb, #sheets .sheet .cust-header > .cust-clear-btn, #sheets .sheet .cust-header > .cust-add-btn, #sheets .sheet .cust-header > .m-toggle { height: 34px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; padding-top: 0; padding-bottom: 0; line-height: 1; }
-  #sheets .sheet .cust-header > .m-toggle { margin-left: auto; }
+  body:not(.printing) #sheets .sheet .cust-header > .eb, body:not(.printing) #sheets .sheet .cust-header > .cust-clear-btn, body:not(.printing) #sheets .sheet .cust-header > .cust-add-btn, body:not(.printing) #sheets .sheet .cust-header > .m-toggle { height: 34px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; padding-top: 0; padding-bottom: 0; line-height: 1; }
+  body:not(.printing) #sheets .sheet .cust-header > .m-toggle { margin-left: auto; }
 }
 @media screen and (max-width: 767px) {
-  #sheets .sheet .cust-header > .eb, #sheets .sheet .cust-header > .cust-clear-btn, #sheets .sheet .cust-header > .cust-add-btn, #sheets .sheet .cust-header > .m-toggle { min-height: 0 !important; gap: 6px; }
+  body:not(.printing) #sheets .sheet .cust-header > .eb, body:not(.printing) #sheets .sheet .cust-header > .cust-clear-btn, body:not(.printing) #sheets .sheet .cust-header > .cust-add-btn, body:not(.printing) #sheets .sheet .cust-header > .m-toggle { min-height: 0 !important; gap: 6px; }
 }
 
 @media screen and (max-width: 767px) {
-  #sheets .sheet .cust-header > .cust-add-btn { display: none !important; }
+  body:not(.printing) #sheets .sheet .cust-header > .cust-add-btn { display: none !important; }
   /* Shipping address button on the left of the price list box */
-  #sheets .sheet .price-list-corner { display: flex !important; align-items: center; justify-content: space-between; gap: 8px; position: static !important; margin-top: 8px; }
-  #sheets .sheet .price-list-corner > .m-toggle { height: 34px; box-sizing: border-box; margin: 0; padding-top: 0; padding-bottom: 0; min-height: 0 !important; }
-  #sheets .sheet .price-list-corner > select { margin-left: auto; height: 34px; }
+  body:not(.printing) #sheets .sheet .price-list-corner { display: flex !important; align-items: center; justify-content: space-between; gap: 8px; position: static !important; margin-top: 8px; }
+  body:not(.printing) #sheets .sheet .price-list-corner > .m-toggle { height: 34px; box-sizing: border-box; margin: 0; padding-top: 0; padding-bottom: 0; min-height: 0 !important; }
+  body:not(.printing) #sheets .sheet .price-list-corner > select { margin-left: auto; height: 34px; }
 }
-@media screen and (max-width: 767px) { #sheets .sheet table.items tr.m-row > td.item-name-cell .m-toggle { border-radius: 999px; } }
-@media screen and (max-width: 767px) { #sheets .sheet table.items .quantity-unit-toggle { height: 32px; min-height: 32px; box-sizing: border-box; } }
+@media screen and (max-width: 767px) { body:not(.printing) #sheets .sheet table.items tr.m-row > td.item-name-cell .m-toggle { border-radius: 999px; } }
+@media screen and (max-width: 767px) { body:not(.printing) #sheets .sheet table.items .quantity-unit-toggle { height: 32px; min-height: 32px; box-sizing: border-box; } }
 @media screen and (max-width: 767px) {
   /* Totals: one tidy card. Tax rows (when open) are label on the left, amount on the right; the Total stands out at the bottom. */
-  #sheets .sheet .blk.tot { display: grid !important; grid-template-columns: 1fr auto !important; align-items: center; gap: 8px 12px !important; margin: 12px 0 8px !important; padding: 10px 14px !important; border: 1px solid #dbe3ec !important; border-radius: 12px !important; background: #f8fafc !important; }
-  #sheets .sheet .blk.tot > div, #sheets .sheet .blk.tot .m-tax-rows > div { border: 0 !important; padding: 0 !important; margin: 0 !important; background: transparent !important; text-align: left !important; font-size: 14px; color: #475569; width: auto !important; }
-  #sheets .sheet .blk.tot .m-tax-rows > div:nth-child(even) { text-align: right !important; color: #0f172a; font-weight: 600; font-variant-numeric: tabular-nums; }
-  #sheets .sheet .blk.tot > .m-toggle { grid-column: 1 / -1; justify-self: start; margin: 0 0 2px; }
-  #sheets .sheet .blk.tot > .m-tot-label { padding-top: 10px !important; margin-top: 2px !important; border-top: 1px solid #cbd5e1 !important; font-size: 16px; font-weight: 700; color: #0f172a; }
-  #sheets .sheet .blk.tot > div.big { padding-top: 10px !important; margin-top: 2px !important; border-top: 1px solid #cbd5e1 !important; text-align: right !important; font-size: 22px !important; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; }
-  #sheets .sheet .blk.words { margin: 8px 2px 0 !important; padding: 0 !important; border: 0 !important; font-size: 13px; color: #475569; }
+  body:not(.printing) #sheets .sheet .blk.tot { display: grid !important; grid-template-columns: 1fr auto !important; align-items: center; gap: 8px 12px !important; margin: 12px 0 8px !important; padding: 10px 14px !important; border: 1px solid #dbe3ec !important; border-radius: 12px !important; background: #f8fafc !important; }
+  body:not(.printing) #sheets .sheet .blk.tot > div, body:not(.printing) #sheets .sheet .blk.tot .m-tax-rows > div { border: 0 !important; padding: 0 !important; margin: 0 !important; background: transparent !important; text-align: left !important; font-size: 14px; color: #475569; width: auto !important; }
+  body:not(.printing) #sheets .sheet .blk.tot .m-tax-rows > div:nth-child(even) { text-align: right !important; color: #0f172a; font-weight: 600; font-variant-numeric: tabular-nums; }
+  body:not(.printing) #sheets .sheet .blk.tot > .m-toggle { grid-column: 1 / -1; justify-self: start; margin: 0 0 2px; }
+  body:not(.printing) #sheets .sheet .blk.tot > .m-tot-label { padding-top: 10px !important; margin-top: 2px !important; border-top: 1px solid #cbd5e1 !important; font-size: 16px; font-weight: 700; color: #0f172a; }
+  body:not(.printing) #sheets .sheet .blk.tot > div.big { padding-top: 10px !important; margin-top: 2px !important; border-top: 1px solid #cbd5e1 !important; text-align: right !important; font-size: 22px !important; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; }
+  body:not(.printing) #sheets .sheet .blk.words { margin: 8px 2px 0 !important; padding: 0 !important; border: 0 !important; font-size: 13px; color: #475569; }
 }
-@media screen and (max-width: 767px) { #sheets .sheet .blk.tot { column-gap: 0 !important; } #sheets .sheet .blk.tot > .m-tot-label, #sheets .sheet .blk.tot > div.big { margin-top: 4px !important; } }
-@media screen and (max-width: 767px) { #sheets .sheet .blk.tot > .m-tot-label, #sheets .sheet .blk.tot > div.big { align-self: stretch; display: flex !important; align-items: center; } #sheets .sheet .blk.tot > div.big { justify-content: flex-end; } }
+@media screen and (max-width: 767px) { body:not(.printing) #sheets .sheet .blk.tot { column-gap: 0 !important; } body:not(.printing) #sheets .sheet .blk.tot > .m-tot-label, body:not(.printing) #sheets .sheet .blk.tot > div.big { margin-top: 4px !important; } }
+@media screen and (max-width: 767px) { body:not(.printing) #sheets .sheet .blk.tot > .m-tot-label, body:not(.printing) #sheets .sheet .blk.tot > div.big { align-self: stretch; display: flex !important; align-items: center; } body:not(.printing) #sheets .sheet .blk.tot > div.big { justify-content: flex-end; } }
 
 .m-words { display: none; }
 @media screen and (max-width: 767px) {
-  #sheets .sheet .blk.tot > .m-words { display: block !important; grid-column: 1 / -1; margin-top: 6px !important; padding-top: 10px !important; border-top: 1px solid #cbd5e1 !important; font-size: 13px !important; line-height: 1.45; color: #475569 !important; text-align: left !important; }
-  #sheets .sheet .blk.tot > .m-words b { color: #0f172a; }
-  #sheets .sheet .blk.words { display: none !important; }
+  body:not(.printing) #sheets .sheet .blk.tot > .m-words { display: block !important; grid-column: 1 / -1; margin-top: 6px !important; padding-top: 10px !important; border-top: 1px solid #cbd5e1 !important; font-size: 13px !important; line-height: 1.45; color: #475569 !important; text-align: left !important; }
+  body:not(.printing) #sheets .sheet .blk.tot > .m-words b { color: #0f172a; }
+  body:not(.printing) #sheets .sheet .blk.words { display: none !important; }
 }
 @media screen and (max-width: 767px) {
   /* when a discount is typed, the result and the clear button join the row, so it may wrap onto a second line */
-  #sheets .sheet .inline-discount { flex-wrap: wrap !important; row-gap: 8px; max-width: 100%; }
-  #sheets .sheet .inline-discount .disc-result { font-size: 14px; white-space: nowrap; }
-  #sheets .sheet .inline-discount .m-toggle { margin-left: auto; }
+  body:not(.printing) #sheets .sheet .inline-discount { flex-wrap: wrap !important; row-gap: 8px; max-width: 100%; }
+  body:not(.printing) #sheets .sheet .inline-discount .disc-result { font-size: 14px; white-space: nowrap; }
+  body:not(.printing) #sheets .sheet .inline-discount .m-toggle { margin-left: auto; }
 }
 @media screen and (max-width: 767px) {
   .invoice-body-buttons > .topbar-btn, .invoice-body-buttons .dropdown > .topbar-btn { font-size: 16px !important; font-weight: 600; min-height: 46px; }
@@ -8395,3 +8395,79 @@ body.dashboard-mode .first-run-notice { display: none !important; }
   table.mobile-cards td[data-label]:not(:first-of-type):not(.directory-row-actions) { justify-content: flex-end !important; gap: 8px; }
   table.mobile-cards td[data-label]:not(:first-of-type):not(.directory-row-actions)::before { margin-right: auto; }
 }
+
+/* Totals box on the desktop sheet: the tax rows sit in a wrapper (it folds on a phone), so give them the same
+   look as the rows that are direct children: label on the right, a line between label and amount, a line between rows. */
+.tot > .m-tax-rows > div { padding: 7px 8px; }
+.tot > .m-tax-rows > div:nth-child(odd) { text-align: right; font-weight: 400; }
+.tot > .m-tax-rows > div:nth-child(even) { border-left: 1.5px solid #000; }
+.tot > .m-tax-rows > div:nth-child(n+3) { border-top: 1.5px solid #000; }
+.sheet.tpl-classic.accented .tot > .m-tax-rows > div:nth-child(n+3),
+.sheet.tpl-modern .tot > .m-tax-rows > div:nth-child(n+3), .sheet.tpl-elegant .tot > .m-tax-rows > div:nth-child(n+3),
+.sheet.tpl-minimal .tot > .m-tax-rows > div:nth-child(n+3), .sheet.tpl-corporate .tot > .m-tax-rows > div:nth-child(n+3) { border-top-color: var(--inv-accent-line); }
+.sheet.tpl-classic.accented .tot > .m-tax-rows > div:nth-child(even),
+.sheet.tpl-modern .tot > .m-tax-rows > div:nth-child(even), .sheet.tpl-elegant .tot > .m-tax-rows > div:nth-child(even),
+.sheet.tpl-minimal .tot > .m-tax-rows > div:nth-child(even), .sheet.tpl-corporate .tot > .m-tax-rows > div:nth-child(even) { border-left-color: var(--inv-accent-line); }
+
+/* Shared invoice picture and PDF (drawn with body.printing, not with real printing): the same plain text as on paper */
+body.printing .inv-date-input { display: none !important; }
+body.printing .inv-date-text { display: inline !important; }
+body.printing .cust-header { display: inline; }
+body.printing .cust-heading, body.printing .cust-name-print { display: inline !important; }
+body.printing .print-only-totals td { padding: 7px 8px; border: 1.5px solid #000; }
+body.printing .print-only-totals td:first-child { text-align: right; }
+body.printing .print-only-totals td + td { border-left: 1.5px solid #000; }
+
+/* Invoice toolbar on laptops and desktops: each small label sits above its box, so every box is wide enough for its
+   text ("GST added on top of rate", "1 copy", "A4 (full page)") and the row still fits on one line. If the window is
+   too narrow, the buttons move to a second line; nothing is cut off. */
+@media screen and (min-width: 992px) {
+  .invoice-body-actions { flex-wrap: wrap !important; align-items: flex-end !important; row-gap: 10px; }
+  .invoice-body-settings { flex-wrap: nowrap; align-items: flex-end !important; gap: 12px !important; flex: 0 1 auto !important; }
+  .invoice-body-settings .topbar-setting:not(.quote-toggle-setting) { flex-direction: column !important; align-items: flex-start !important; gap: 3px !important; width: auto !important; flex: 0 0 auto !important; }
+  .invoice-body-settings .topbar-setting .setting-label { margin: 0 !important; line-height: 1.2; }
+  .invoice-body-settings #pm { width: 222px !important; }
+  .invoice-body-settings #cp { width: 104px !important; }
+  .invoice-body-settings #paperSel { width: 158px !important; }
+  .invoice-body-settings .quote-toggle-setting { align-self: flex-end; }
+  .invoice-body-buttons { margin-left: auto; }
+}
+
+/* Phone, Classic template: seller card as a small grid so a long business name wraps beside the "Invoice details"
+   button instead of running under it.   name | button
+                                          details | logo */
+@media screen and (max-width: 767px) {
+  body:not(.printing) #sheets .sheet.tpl-classic .cell:has(> .m-seller) { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; row-gap: 4px; align-items: start; }
+  body:not(.printing) #sheets .sheet.tpl-classic .m-seller { display: contents; }
+  body:not(.printing) #sheets .sheet.tpl-classic .m-seller > .comp-name { grid-column: 1; grid-row: 1; max-width: none; overflow-wrap: anywhere; }
+  body:not(.printing) #sheets .sheet.tpl-classic .m-seller > .m-toggle { position: static !important; grid-column: 2; grid-row: 1; justify-self: end; margin: 2px 0 0; }
+  body:not(.printing) #sheets .sheet.tpl-classic .m-seller > .m-more { display: block; grid-column: 1; grid-row: 2; }
+  body:not(.printing) #sheets .sheet.tpl-classic .m-seller > .m-more > br:first-child { display: none; }
+  body:not(.printing) #sheets .sheet.tpl-classic .cell:has(> .m-seller) > .logo { grid-column: 2; grid-row: 2; justify-self: end; align-self: start; margin: 0; }
+}
+@media screen and (max-width: 767px) { body:not(.printing) #sheets .sheet.tpl-classic .m-seller > .m-toggle, body:not(.printing) #sheets .sheet.tpl-classic .cell:has(> .m-seller) > .logo { align-self: start !important; } }
+
+/* Phone item cards in Hindi: the small labels come from the style sheet, so they are translated here */
+html[lang="hi"] body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(5)::before { content: "मात्रा"; }
+html[lang="hi"] body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(4)::before { content: "दर"; }
+html[lang="hi"] body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(10)::before { content: "कुल"; }
+html[lang="hi"] body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(3)::before { content: "HSN/SAC"; }
+html[lang="hi"] body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(7)::before { content: "मूल्य"; }
+html[lang="hi"] body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(8)::before { content: "GST %"; }
+html[lang="hi"] body:not(.printing) #sheets .sheet table.items tr.m-row > td:nth-child(9)::before { content: "कर"; }
+
+/* View All Invoices: saved invoices that need a look */
+.invoice-check { margin: 4px 0 14px; border: 1px solid #fcd34d; border-radius: 12px; background: #fffbeb; }
+.invoice-check > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; cursor: pointer; list-style: none; }
+.invoice-check > summary::-webkit-details-marker { display: none; }
+.invoice-check > summary::after { content: "▾"; color: #92400e; margin-left: auto; transition: transform .15s; }
+.invoice-check[open] > summary::after { transform: rotate(180deg); }
+.invoice-check-title { font-weight: 700; color: #92400e; }
+.invoice-check-hint { font-size: 13px; color: #a16207; }
+.invoice-check[open] .invoice-check-hint { display: none; }
+.invoice-check-note { margin: 0 14px 10px; font-size: 13px; color: #713f12; }
+.invoice-check-list { list-style: none; margin: 0; padding: 0 14px 12px; display: grid; gap: 8px; }
+.invoice-check-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px solid #fde68a; }
+.invoice-check-row > div { min-width: 0; font-size: 14px; }
+.invoice-check-issues { margin: 4px 0 0; padding-left: 18px; font-size: 13px; color: #78350f; }
+.invoice-check-row .btn { flex: none; }

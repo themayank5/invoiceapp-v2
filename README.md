@@ -96,12 +96,31 @@ and installation only work from `https://` or `http://localhost`, not from a dou
 
 ## What is in the project
 
+The project root is what GitHub Pages publishes. Keep these paths as they are: the installed app and its offline copy
+look for them by name.
+
+**Live: published with the app**
+
 - `index.html`, `landing.css`, `landing.js` – the guide page (English and Hindi) that opens first
 - `app.html`, `app.js`, `style.css`, `i18n.js`, `folder-data.js` – the app itself
 - `sample-data.js` – the example data the app loads from "Try it with sample data" (customers, items, sellers, a logo,
   a signature and the plan for the sample invoices)
 - `sample-data/` – the downloadable sample data folder (zip) offered on the guide page
-- `tools/landing-css/` – how to rebuild the guide page stylesheet (Tailwind + daisyUI)
-- `lib/`, `fonts/` – libraries and fonts, bundled so nothing loads from the internet
+- `lib/`, `fonts/`, `img/` – libraries, fonts and pictures, bundled so nothing loads from the internet
 - `manifest.webmanifest`, `sw.js`, `icons/` – installable app and offline start
-- `FEATURES.md` – what the app does
+
+**In the repository, not used by the app**
+
+- `README.md` – this file
+- `docs/FEATURES.md` – what the app does
+- `docs/TEST-REPORT.md` – test results and known bugs
+- `tools/landing-css/` – how to rebuild the guide page stylesheet (Tailwind + daisyUI)
+
+**Local only: never uploaded** (listed in `.gitignore`)
+
+- `csv/` – your own data folder for everyday testing (connect it with **Connect Database**)
+- `local/` – anything else for testing on this computer, for example `local/test-data/` (a sample-data folder)
+- `.claude/` – editor tool settings
+
+Connect the app to `csv/` or a folder under `local/`, never to the project root itself, or the app writes its data
+files and pictures next to the app's own files.

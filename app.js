@@ -267,6 +267,77 @@ const DEMO_DATA = {
   }
 };
 
+// Place of supply decides the tax type: CGST + SGST when it is the seller's own state, IGST otherwise.
+// It follows the customer: the state in their GSTIN, or the seller's own state for a customer without
+// a GSTIN (a counter sale). It can still be changed by hand under Invoice details.
+function placeOfSupplyFor(customer, seller = S.seller) {
+  const code = String(customer?.gstin || '').trim().slice(0, 2);
+  if (STATES.some(([c]) => c === code)) return code;
+  return String(seller?.state || '');
+}
+function syncPlaceOfSupply() { S.meta.pos = placeOfSupplyFor(S.customer); }
+
+// What stops an invoice or quotation from being saved: no date, no item, or an item without a quantity.
+// The customer may be left out (a cash sale). Drafts are not checked: they can be finished later.
+function invoiceSaveProblem(state = S, docWord = 'invoice') {
+  if (!String(state.meta?.date || '').trim()) return `Choose the ${docWord} date.`;
+  const date = String(state.meta.date), due = String(state.meta.due || ''), valid = String(state.meta.valid || '');
+  if (due && due < date) return `The due date (${dt(due)}) is before the ${docWord} date (${dt(date)}). Choose a due date on or after it, or clear it.`;
+  if (valid && valid < date) return `The valid-until date (${dt(valid)}) is before the ${docWord} date (${dt(date)}).`;
+  const items = state.items || [];
+  if (!items.some(item => String(item.name || '').trim())) return `Add at least one item to the ${docWord}.`;
+  const index = items.findIndex(item => String(item.name || '').trim() && !(+item.qty > 0));
+  if (index >= 0) return `Item ${index + 1} (${String(items[index].name).trim()}) has no quantity. Enter a quantity above zero, or delete the row.`;
+  return '';
+}
+
+// CSV safety: a cell that starts with = + - @ (or a tab or line break) can run as a formula when the file is opened
+// in Excel or Google Sheets. Such text is written with a leading apostrophe, which spreadsheets treat as "this is text".
+// The app removes that apostrophe again when it reads the file, so the data comes back exactly as it was.
+// Plain numbers such as -4 or +5 are left alone.
+const CSV_FORMULA_START = /^'*[=+\-@\t\r]/;   // any apostrophes, then a formula character
+function csvSafeText(value) {
+  const text = String(value ?? '');
+  if (/^[+-]?\d+(\.\d+)?$/.test(text)) return text;
+  return CSV_FORMULA_START.test(text) ? `'${text}` : text;
+}
+// Exact opposite of csvSafeText: removes the one apostrophe it added.
+const csvUnguard = text => (/^'+[=+\-@\t\r]/.test(text) ? text.slice(1) : text);
+
+// Checks for business and payment details. Each returns a message, or '' when the value is fine or empty.
+const phoneProblem = value => {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  if (!/^\+?[\d\s()-]+$/.test(text)) return 'The phone number can only have digits, spaces, + and -.';
+  const digits = text.replace(/\D/g, '');
+  return digits.length >= 10 && digits.length <= 13 ? '' : 'Enter a full phone number (10 digits, or with the country code).';
+};
+const emailProblem = value => {
+  const text = String(value || '').trim();
+  return !text || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(text) ? '' : 'Enter a valid email address, for example name@example.com.';
+};
+const accountProblem = value => {
+  const text = String(value || '').replace(/\s/g, '');
+  return !text || /^\d{9,18}$/.test(text) ? '' : 'The account number should be 9 to 18 digits, with no letters.';
+};
+const upiProblem = value => {
+  const text = String(value || '').trim();
+  return !text || /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z][a-zA-Z0-9.-]{1,63}$/.test(text) ? '' : 'Enter a valid UPI ID, for example name@okhdfcbank.';
+};
+// The first two digits of a GSTIN are the state code, so they must match the state chosen for the business.
+const gstinStateProblem = (gstin, state) => {
+  const code = String(gstin || '').trim().slice(0, 2);
+  if (!code || !state || !/^\d{2}$/.test(code) || code === String(state)) return '';
+  const name = code2 => (STATES.find(([c]) => c === code2) || [])[1] || code2;
+  return `The GSTIN starts with ${code} (${name(code)}), but the state chosen is ${state} (${name(String(state))}). Check the GSTIN or the state.`;
+};
+function sellerDetailsProblem(seller) {
+  return phoneProblem(seller.mobile) || emailProblem(seller.email) || gstinStateProblem(seller.gstin, seller.state);
+}
+function bankDetailsProblem(bank) {
+  return accountProblem(bank.acc) || upiProblem(bank.upi);
+}
+
 function blankInvoice() {
   const blank = structuredClone(EMPTY_STATE);
   blank.meta.date = todayISO();
@@ -275,6 +346,7 @@ function blankInvoice() {
 
 let hasSavedInvoice = false;
 let S = load();
+if (!S.meta.pos) S.meta.pos = placeOfSupplyFor(S.customer);
 S.lang = uiLang;   // the invoice being made uses the language the app is set to
 let printing = false;
 let startNewAfterPrint = false;
@@ -1084,7 +1156,9 @@ function profileCurrent(kind) {
 function applyProfile(kind, profile) {
   if (kind === 'seller') {
     const previousName = S.seller.name;
+    const previousState = S.seller.state;
     S.seller = structuredClone(profile);
+    if (!S.meta.pos || S.meta.pos === previousState) S.meta.pos = placeOfSupplyFor(S.customer);
     if (!S.sign.companyName || S.sign.companyName === previousName) S.sign.companyName = profile.name;
   }
   else if (kind === 'bank') S.bank = structuredClone({
@@ -1342,7 +1416,7 @@ function save() {
         inQuotes = true;
       } else if (char === ',' || char === '\n' || char === '\r') {
         if (char === '\r' && text[i + 1] === '\n') i++;
-        row.push(field.trim());
+        row.push(csvUnguard(field.trim()));
         field = '';
         quoteClosed = false;
         if (char !== ',') {
@@ -1357,7 +1431,7 @@ function save() {
     }
 
     if (inQuotes) throw new Error('The CSV file contains an unclosed quoted value.');
-    row.push(field.trim());
+    row.push(csvUnguard(field.trim()));
     if (row.some(value => value)) rows.push(row);
     return rows;
   }
@@ -1402,7 +1476,7 @@ function save() {
   }
 
   function invoiceArchiveCsv(records) {
-    const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const quote = value => `"${csvSafeText(value).replace(/"/g, '""')}"`;
     const headers = ['invoice_no', 'customer_name', 'total', 'invoice_date', 'status', 'snapshot'];
     const rows = records.map(record => [
       record.invoiceNo,
@@ -1987,6 +2061,7 @@ function save() {
     const fill = freshInvoice => {
       if (freshInvoice) startNewInvoice();
       S.customer = structuredClone(customer);
+      syncPlaceOfSupply();
       save();
       render();
     };
@@ -2053,7 +2128,7 @@ function save() {
   }
 
   function customerCsvContent(customers) {
-    const escapeCsv = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const escapeCsv = value => `"${csvSafeText(value).replace(/"/g, '""')}"`;
     return `\uFEFFname,address,phone,email,gstin,active,price_list,contacts,shipping_addresses\r\n${customers.map(customer => {
       const contacts = normalizeContacts(customer.contacts);
       const addresses = normalizeShipAddresses(customer.shippingAddresses);
@@ -2513,6 +2588,7 @@ function save() {
     if (!item.name || !item.hsn || !rateText || !Number.isFinite(item.rate) || item.rate < 0) return 'Enter an item name, HSN/SAC, and a non-negative rate.';
     if (!hsnIsValid(item.hsn)) return 'HSN/SAC must be numbers only, with 4, 6 or 8 digits.';
     if (!Number.isFinite(item.cost) || item.cost < 0) return 'Purchase price cannot be negative.';
+    if (itemTracksStock(item) && item.stock < 0) return 'Stock cannot be negative. Enter 0 or more, or leave it blank to not track stock.';
     return '';
   }
 
@@ -2629,7 +2705,7 @@ function save() {
   }
 
   function itemCsvContent(items) {
-    const escapeCsv = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const escapeCsv = value => `"${csvSafeText(value).replace(/"/g, '""')}"`;
     return `\uFEFFname,hsn/sac,rate,unit,gst,cost,active,price_history,stock,wholesale_rate\r\n${items.map(item => [item.name, item.hsn, item.rate, normalizeItemUnit(item.unit), normalizeItemGst(item.gst),
       item.cost > 0 ? item.cost : '', item.active === false ? 'no' : 'yes', item.history?.length ? JSON.stringify(item.history) : '',
       itemTracksStock(item) ? item.stock : '', item.wholesaleRate > 0 ? item.wholesaleRate : '']
@@ -3651,7 +3727,7 @@ function save() {
   const exportFileName = (ds, ext) => `${ds.file}-${todayISO()}.${ext}`;
 
   function reportCsvFile(ds) {
-    const cell = v => `"${String(v === null || v === undefined ? '' : v).replace(/"/g, '""')}"`;
+    const cell = v => `"${csvSafeText(v === null || v === undefined ? '' : v).replace(/"/g, '""')}"`;
     const lines = [ds.cols.map(c => cell(c.h)).join(',')]
       .concat(ds.rows.map(r => r.map(cell).join(',')))
       .concat(ds.foot ? [ds.foot.map(cell).join(',')] : []);
@@ -3787,6 +3863,7 @@ function save() {
     const set = (selector, html) => { const el = $(selector); if (el) el.innerHTML = html; };
     set('#invoiceArchiveKpis', invoiceArchiveKpisHTML());
     set('#invoiceArchiveTabs', invoiceArchiveTabsHTML());
+    set('#invoiceArchiveCheck', savedInvoiceCheckHTML());
     set('#invoiceArchiveResults', invoiceArchiveResultsHTML());
   }
 
@@ -3797,11 +3874,55 @@ function save() {
     return `<div class="archive-tabs" role="tablist" aria-label="Invoice type">${tab('saved', 'Saved Invoices')}${tab('draft', 'Draft Invoices')}${tab('quotation', 'Quotations')}</div>`;
   }
 
+  /* ---------- saved-invoice check: invoices saved before the fixes for the test report ----------
+     Lists saved invoices that may have been issued wrongly. Nothing is changed automatically. */
+  function savedInvoiceIssues(record) {
+    const snap = record.snapshot || {};
+    const issues = [];
+    const stateName = code => (STATES.find(([c]) => c === code) || [])[1] || code;
+    const sellerState = String(snap.seller?.state || '');
+    const pos = String(snap.meta?.pos || '');
+    const gstState = String(snap.customer?.gstin || '').trim().slice(0, 2);
+    const charged = sellerState && pos && sellerState === pos ? 'CGST + SGST' : 'IGST';
+    if (STATES.some(([c]) => c === gstState) && sellerState) {
+      const due = gstState === sellerState ? 'CGST + SGST' : 'IGST';
+      if (due !== charged) issues.push(`Wrong tax type: charged ${charged}, but the customer's GSTIN is from ${stateName(gstState)}, so ${due} was due.`);
+    }
+    if (!pos) issues.push('No place of supply, so IGST was charged.');
+    if (!String(record.invoiceDate || '').trim()) issues.push('No invoice date, so it is left out of date-based reports.');
+    const named = (snap.items || []).filter(item => String(item.name || '').trim());
+    if (!named.length || !(+record.total > 0)) issues.push('No items, or a total of ₹0.');
+    else if (named.some(item => !(+item.qty > 0))) issues.push('An item has no quantity.');
+    const date = String(snap.meta?.date || record.invoiceDate || ''), dueDate = String(snap.meta?.due || '');
+    if (date && dueDate && dueDate < date) issues.push('The due date is before the invoice date.');
+    return issues;
+  }
+
+  function savedInvoiceCheckHTML() {
+    if (archiveTab !== 'saved') return '';
+    const flagged = archivedInvoices.map((record, index) => ({ record, index }))
+      .filter(({ record }) => record.status === 'saved')
+      .map(entry => ({ ...entry, issues: savedInvoiceIssues(entry.record) }))
+      .filter(entry => entry.issues.length);
+    if (!flagged.length) return '';
+    const rows = flagged.map(({ record, index, issues }) => `<li class="invoice-check-row">
+        <div><strong>${esc(record.invoiceNo || 'No number')}</strong> · ${esc(record.customerName || 'No customer')}${record.invoiceDate ? ` · ${esc(dt(record.invoiceDate))}` : ''}
+          <ul class="invoice-check-issues">${issues.map(issue => `<li>${esc(issue)}</li>`).join('')}</ul></div>
+        <button type="button" class="btn btn-sm btn-outline-primary" data-invoice-view="${index}">View</button>
+      </li>`).join('');
+    return `<details class="invoice-check">
+      <summary><span class="invoice-check-title">⚠ ${flagged.length} saved ${flagged.length === 1 ? 'invoice needs' : 'invoices need'} a look</span><span class="invoice-check-hint">Tap to see which and why</span></summary>
+      <p class="invoice-check-note">These were saved before the app checked for these mistakes. Nothing has been changed. To correct one, create it again on Generate Invoice with the same invoice number and save it: the app asks before it replaces the saved one. For an invoice already sent to a customer, ask your accountant whether a credit note is needed.</p>
+      <ul class="invoice-check-list">${rows}</ul>
+    </details>`;
+  }
+
   function invoiceArchiveHTML() {
     return `${invoiceCsvHandle ? '' : '<div class="alert alert-warning" role="status">Connect Database to load and manage saved invoices.</div>'}
       ${invoiceArchiveFilterHTML()}
       <div class="kpi-grid" id="invoiceArchiveKpis">${invoiceArchiveKpisHTML()}</div>
       <div id="invoiceArchiveTabs">${invoiceArchiveTabsHTML()}</div>
+      <div id="invoiceArchiveCheck">${savedInvoiceCheckHTML()}</div>
       <div class="invoice-archive-heading">
         <div>
           <strong>${archiveTab === 'draft' ? 'Draft invoices' : archiveTab === 'quotation' ? 'Quotations' : 'Saved invoices'}</strong>
@@ -3881,12 +4002,26 @@ function save() {
     status.textContent = '';
     status.className = 'invoice-save-status no-print';
     if (!invoiceCsvHandle) {
-      showCsvHelp('all', `Connect the database, including invoices.csv, before saving a ${docWord}.`);
+      showCsvHelp('all', `Connect the database, including invoices.csv, before saving ${docWord === 'invoice' ? 'an' : 'a'} ${docWord}.`);
       return false;
     }
 
     if (!isQuote && !isDraftSave && clampStockQuantities().length) {   // never save an invoice that sells more than the stock
       render();
+      return false;
+    }
+
+    const problem = isDraftSave ? '' : invoiceSaveProblem(S, docWord);
+    if (problem) {   // checked before the number is used, so a refused invoice never takes up a number
+      status.classList.add('text-danger');
+      status.textContent = `${problem} The ${docWord} was not saved.`;
+      return false;
+    }
+
+    if (!isDraftSave && !S.meta.pos) syncPlaceOfSupply();
+    if (!isDraftSave && !S.meta.pos) {
+      status.classList.add('text-danger');
+      status.textContent = `Choose the Place of Supply under Invoice details (or add your state in Seller Info) before saving this ${docWord}. It decides between CGST + SGST and IGST.`;
       return false;
     }
 
@@ -3920,7 +4055,7 @@ function save() {
     const invoiceNo = String(S.meta.no || '').trim();
     if (!invoiceNo) {
       status.classList.add('text-danger');
-      status.textContent = `Enter a ${docWord} number before saving this ${docWord}.`;
+      status.textContent = `Enter ${docWord === 'invoice' ? 'an' : 'a'} ${docWord} number before saving this ${docWord}.`;
       return false;
     }
     const matchesInvoiceNo = invoice => invoice.status !== 'draft' && invoice.invoiceNo.trim().toLowerCase() === invoiceNo.toLowerCase();
@@ -3995,6 +4130,16 @@ function save() {
     }
     const isQuote = isQuotation();
     const finalising = archivePreviewInvoice.status === 'draft' && status === 'saved';
+    const problem = status === 'saved' ? invoiceSaveProblem({ ...S, meta: { ...S.meta, date: S.meta.date || todayISO() } }, isQuote ? 'quotation' : 'invoice') : '';
+    if (problem) {
+      showInvoicePreviewSaveError(problem);
+      return;
+    }
+    if (status === 'saved' && !S.meta.pos) syncPlaceOfSupply();
+    if (status === 'saved' && !S.meta.pos) {
+      showInvoicePreviewSaveError('Choose the Place of Supply before saving. It decides between CGST + SGST and IGST.');
+      return;
+    }
     const recordIndex = recordIndexOf(archivePreviewInvoice);
     if (recordIndex < 0) {
       showInvoicePreviewSaveError(`This ${isQuote ? 'quotation' : 'invoice'} is no longer in the saved list.`);
@@ -4284,12 +4429,16 @@ function save() {
       if (newCustomers.length) await persistCustomerList([...importedCustomers, ...newCustomers], true);
       if (newItems.length) await persistCatalogItems([...catalogItems, ...newItems], true);
       const added = { customers: newCustomers.length, items: newItems.length };
+      const marks = { customers: newCustomers.map(customerDuplicateKey), items: newItems.map(item => itemNameKey(item.name)) };
       for (const kind of ['seller', 'bank', 'terms']) {
         const have = new Set(profileList(kind).map(p => profileIdentity(kind, p)));
         const fresh = sample[kind].filter(p => !have.has(profileIdentity(kind, p)));
         if (fresh.length) await persistProfiles(kind, [...profileList(kind), ...fresh]);
         added[kind] = fresh.length;
+        marks[kind] = fresh.map(p => profileIdentity(kind, p));
       }
+      // Remember them even if nothing new was added this time, so removal knows it was tracked in this browser.
+      addSampleMarks(marks);
       added.invoices = 0;
       if (!archivedInvoices.some(invoice => invoice.snapshot?.sample)) {
         try {   // remember the invoice numbers as they were, so removing the sample puts them back
@@ -4316,27 +4465,56 @@ function save() {
   }
 
   // What Remove sample data would delete right now, so the question can say it plainly.
-  function sampleCounts() {
+  // Which records "Load sample data" added. Records that were skipped because you already had them are not listed,
+  // so your own "Basmati Rice" is never removed with the sample. Kept in this browser.
+  const SAMPLE_ADDED_KEY = 'invoicegen_sample_added_v1';
+  function loadSampleMarks() {
+    try { const marks = JSON.parse(localStorage.getItem(SAMPLE_ADDED_KEY) || 'null'); return marks && typeof marks === 'object' ? marks : null; } catch (error) { return null; }
+  }
+  function addSampleMarks(added) {
+    const marks = loadSampleMarks() || {};
+    Object.entries(added).forEach(([kind, keys]) => { marks[kind] = [...new Set([...(marks[kind] || []), ...keys])]; });
+    try { localStorage.setItem(SAMPLE_ADDED_KEY, JSON.stringify(marks)); } catch (error) { /* storage blocked: removal falls back to matching */ }
+  }
+  function clearSampleMarks() { try { localStorage.removeItem(SAMPLE_ADDED_KEY); } catch (error) { /* storage blocked */ } }
+
+  // What Remove sample data would take out. With marks: only what the sample added and is still unchanged.
+  // Without marks (sample loaded before this was kept, or in another browser): every unchanged record that matches the sample.
+  function sampleRemovalPlan() {
     const sample = sampleRecords();
-    const customerKeys = new Set(sample.customers.map(customerDuplicateKey));
-    const itemKeys = new Set(sample.items.map(item => itemNameKey(item.name)));
+    const marks = loadSampleMarks();
+    const pick = (kind, keys) => {
+      const sampleKeys = new Set(keys);
+      return marks ? new Set((marks[kind] || []).filter(key => sampleKeys.has(key))) : sampleKeys;
+    };
+    return {
+      sample,
+      byMatchOnly: !marks,
+      customers: pick('customers', sample.customers.map(customerDuplicateKey)),
+      items: pick('items', sample.items.map(item => itemNameKey(item.name))),
+      seller: pick('seller', sample.seller.map(p => profileIdentity('seller', p))),
+      bank: pick('bank', sample.bank.map(p => profileIdentity('bank', p))),
+      terms: pick('terms', sample.terms.map(p => profileIdentity('terms', p)))
+    };
+  }
+
+  function sampleCounts() {
+    const plan = sampleRemovalPlan();
     const counts = {
-      customers: importedCustomers.filter(c => customerKeys.has(customerDuplicateKey(c))).length,
-      items: catalogItems.filter(item => itemKeys.has(itemNameKey(item.name))).length,
+      customers: importedCustomers.filter(c => plan.customers.has(customerDuplicateKey(c))).length,
+      items: catalogItems.filter(item => plan.items.has(itemNameKey(item.name))).length,
       invoices: archivedInvoices.filter(invoice => invoice.snapshot?.sample).length
     };
-    for (const kind of ['seller', 'bank']) {
-      const ids = new Set(sample[kind].map(p => profileIdentity(kind, p)));
-      counts[kind] = profileList(kind).filter(p => ids.has(profileIdentity(kind, p))).length;
-    }
+    for (const kind of ['seller', 'bank']) counts[kind] = profileList(kind).filter(p => plan[kind].has(profileIdentity(kind, p))).length;
     const parts = [[counts.customers, 'customers'], [counts.items, 'items'], [counts.invoices, 'invoices and quotations'], [counts.seller, 'sellers'], [counts.bank, 'bank entries']].filter(([n]) => n);
-    return { counts, text: parts.map(([n, label]) => `${n} ${label}`).join(', '), total: parts.reduce((a, [n]) => a + n, 0) };
+    return { counts, byMatchOnly: plan.byMatchOnly, text: parts.map(([n, label]) => `${n} ${label}`).join(', '), total: parts.reduce((a, [n]) => a + n, 0) };
   }
 
   async function removeSampleData() {
     if (!databaseConnectedForSample()) { showCsvHelp('all', 'Connect your database folder first.'); return false; }
     try {
-      const sample = sampleRecords();
+      const plan = sampleRemovalPlan();
+      const sample = plan.sample;
       const removed = { invoices: 0 };
       const sampleInvoices = archivedInvoices.filter(invoice => invoice.snapshot?.sample);
       if (sampleInvoices.length) {   // first, so the stock they used goes back
@@ -4349,8 +4527,8 @@ function save() {
         } catch (error) { /* storage blocked */ }
         if (numbering.auto && !archivePreviewInvoice) S.meta.no = nextInvoiceNumber(S.meta.date);
       }
-      const customerKeys = new Set(sample.customers.map(customerDuplicateKey));
-      const itemKeys = new Set(sample.items.map(item => itemNameKey(item.name)));
+      const customerKeys = plan.customers;
+      const itemKeys = plan.items;
       const keepCustomers = importedCustomers.filter(c => !customerKeys.has(customerDuplicateKey(c)));
       const keepItems = catalogItems.filter(item => !itemKeys.has(itemNameKey(item.name)));
       removed.customers = importedCustomers.length - keepCustomers.length; removed.items = catalogItems.length - keepItems.length;
@@ -4361,7 +4539,7 @@ function save() {
       if (removed.customers) await persistCustomerList(keepCustomers, true);
       if (removed.items) await persistCatalogItems(keepItems, true);
       for (const kind of ['seller', 'bank', 'terms']) {
-        const gone = new Set(sample[kind].map(p => profileIdentity(kind, p)));
+        const gone = plan[kind];
         const keep = profileList(kind).filter(p => !gone.has(profileIdentity(kind, p)));
         removed[kind] = profileList(kind).length - keep.length;
         if (removed[kind]) await persistProfiles(kind, keep);
@@ -4374,8 +4552,12 @@ function save() {
       if (S.sign?.sig && S.sign.sig === window.SAMPLE_DATA?.signature) S.sign = blank.sign;
       save();
       setSampleMode(false);
+      clearSampleMarks();
       const total = Object.values(removed).reduce((a, b) => a + b, 0);
-      showToast(total ? `Sample data removed: ${removed.customers} customers, ${removed.items} items, ${removed.invoices} invoices and quotations, ${removed.seller} sellers, ${removed.bank} bank entries. Anything you changed or added yourself was kept.` : 'No sample data was found.', { type: total ? 'success' : 'info', duration: 8000 });
+      const keptNote = plan.byMatchOnly
+        ? 'Records were matched by their details, so a record of your own with exactly the same details may have been removed too. Removed customers and items are in the Trash.'
+        : 'Only records added by Load sample data were removed; your own records were kept, even ones with the same name.';
+      showToast(total ? `Sample data removed: ${removed.customers} customers, ${removed.items} items, ${removed.invoices} invoices and quotations, ${removed.seller} sellers, ${removed.bank} bank entries. ${keptNote}` : 'No sample data was found.', { type: total ? 'success' : 'info', duration: 9000 });
       render();
       if (edSec && !$('#dashboardPage').hidden) openEditor(edSec);
       return true;
@@ -4387,7 +4569,7 @@ function save() {
   }
 
   function profileCsvContent(kind, profiles) {
-    const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const quote = value => `"${csvSafeText(value).replace(/"/g, '""')}"`;
     const headers = kind === 'seller'
       ? ['name', 'gstin', 'address', 'mobile', 'email', 'state', 'logo']
       : kind === 'bank'
@@ -4693,14 +4875,19 @@ function save() {
     return normalizeProfile(kind, values);
   }
 
-  function validateProfile(kind, profile) {
+  // forForm: also apply the stricter checks for typed details. Files that are read are not held to them, so old data still opens.
+  function validateProfile(kind, profile, { forForm = false } = {}) {
     if (kind === 'seller') {
       if (!profile.name || !profile.addr) return 'Business name and address are required.';
       if (profile.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email)) return 'Enter a valid business email address.';
       if (profile.gstin && !GST_RE.test(profile.gstin.toUpperCase())) return 'Enter a valid GSTIN or leave it blank.';
+      const problem = forForm ? sellerDetailsProblem(profile) : '';
+      if (problem) return problem;
     } else if (kind === 'bank') {
       if (!profile.bank) return 'Bank name is required.';
       if (profile.ifsc && !IFSC_RE.test(profile.ifsc.toUpperCase())) return 'Enter a valid IFSC code or leave it blank.';
+      const problem = forForm ? bankDetailsProblem(profile) : '';
+      if (problem) return problem;
     } else if (!profile.profileName || !profile.terms.length) return 'Set name and at least one term are required.';
     return '';
   }
@@ -4743,7 +4930,7 @@ function save() {
       status.textContent = error.message || 'Could not read the selected logo.';
       return;
     }
-    const errorMessage = validateProfile(kind, profile);
+    const errorMessage = validateProfile(kind, profile, { forForm: true });
     if (errorMessage) {
       status.className = 'customer-import-status error';
       status.textContent = errorMessage;
@@ -4804,7 +4991,7 @@ function save() {
       } else values[key] = input.value;
     }
     const profile = normalizeProfile(kind, values);
-    const errorMessage = validateProfile(kind, profile);
+    const errorMessage = validateProfile(kind, profile, { forForm: true });
     if (errorMessage) {
       $('#directoryDrawerError').textContent = errorMessage;
       $('#directoryDrawerError').hidden = false;
@@ -5143,7 +5330,12 @@ Choose Cancel if this is the wrong folder.`)) return;
         return;
       }
       if (!/\.csv$/i.test(file.name)) throw new Error('Choose a CSV file.');
-      const { items, invalidRows } = parseItemCsv(await file.text());
+      const parsed = parseItemCsv(await file.text());
+      // Imported rows meet the same rules as the Add an item form (HSN/SAC of 4, 6 or 8 digits, no negative stock ...).
+      const ruleProblems = parsed.items.map(item => itemValidationError(item, String(item.rate))).filter(Boolean);
+      const items = parsed.items.filter(item => !itemValidationError(item, String(item.rate)));
+      const invalidRows = parsed.invalidRows + ruleProblems.length;
+      if (!items.length && ruleProblems.length) throw new Error(`No rows could be imported. ${ruleProblems[0]}`);
       const seen = new Set(itemOptions().map(itemDuplicateKey));
       const additions = items.filter(item => {
         const key = itemDuplicateKey(item);
@@ -5166,7 +5358,7 @@ Choose Cancel if this is the wrong folder.`)) return;
       openEditor('itemDirectory');
       const result = $('#itemImportStatus');
       result.classList.add('success');
-      result.textContent = `${additions.length} item(s) imported and saved to items.csv. ${items.length - additions.length} duplicate(s) skipped.${invalidRows ? ` ${invalidRows} invalid row(s) skipped.` : ''}`;
+      result.textContent = `${additions.length} item(s) imported and saved to items.csv. ${items.length - additions.length} duplicate(s) skipped.${invalidRows ? ` ${invalidRows} invalid row(s) skipped.` : ''}${ruleProblems.length ? ` For example: ${ruleProblems[0]}` : ''}`;
     } catch (error) {
       console.error('Could not import item CSV.', error);
       status.classList.add('error');
@@ -5347,13 +5539,13 @@ function words(n) {
   if (la) p.push(two(la) + ' Lakh');
   if (th) p.push(two(th) + ' Thousand');
   if (rest) p.push((p.length && rest < 100 ? 'And ' : '') + three(rest));
-  return p.join(', ');
+  return p.join(' ');   // Six Thousand Two Hundred And Five (no comma before And)
 }
 function totalWords(t) {
   t = round2(Math.abs(Number(t) || 0));               // never negative or fractional beyond paise
   if (docLang() === 'hi') return totalWordsHi(t);
   const r = Math.floor(t), ps = Math.round((t - r) * 100);
-  return 'INR ' + words(r) + (r === 1 ? ' Rupee' : ' Rupees') + (ps ? ' And ' + two(ps) + ' Paise' : '') + ' Only.';
+  return 'INR ' + words(r) + (r === 1 ? ' Rupee' : ' Rupees') + (ps ? ' And ' + two(ps) + (ps === 1 ? ' Paisa' : ' Paise') : '') + ' Only.';
 }
 
 /* ---------- GST calculation ---------- */
@@ -5400,23 +5592,31 @@ function calc() {
     return { net, gross: round2(net + slabs.reduce((a, g) => a + groups[g].tax, 0)) };
   };
   let discountAmount = disc.amount;
+  let finalAdjust = 0;   // paise needed so a "discount on the final amount" leaves exactly the bill asked for
   if (disc.amount > 0) {
     let result = applyDiscount(discountAmount);
     if (S.discount?.basis === 'final' && S.discount?.type === 'amount' && disc.billDiscount) {
       // Paise rounding can leave the bill a paisa away from "bill amount minus the rupees given". Pick the nearest amount that hits it exactly.
       const target = round2(grossBefore - disc.billDiscount);
-      for (const step of [0, 0.01, -0.01, 0.02, -0.02]) {
+      const steps = [0];
+      for (let p = 1; p <= 10; p++) steps.push(p / 100, -p / 100);   // try up to 10 paise either way, nearest first
+      for (const step of steps) {
         const candidate = round2(disc.amount + step);
         if (candidate <= 0 || candidate > beforeDiscount) continue;
         const attempt = applyDiscount(candidate);
         if (attempt.gross === target) { discountAmount = candidate; result = attempt; break; }
       }
-      if (discountAmount === disc.amount) result = applyDiscount(discountAmount);   // no exact hit: keep the plain figure
+      if (discountAmount === disc.amount) {
+        // GST is rounded per tax rate, so some bill totals cannot be reached by any discount. The 1-2 paise left over
+        // are shown as a round-off line, so the customer pays exactly the figure asked for and the tax stays correct.
+        result = applyDiscount(discountAmount);
+        finalAdjust = round2(target - result.gross);
+      }
     }
     taxable = result.net;
     sum = result.gross;
   }
-  const total = S.round ? Math.round(sum) : sum;
+  const total = S.round ? Math.round(sum) : round2(sum + finalAdjust);
   return { intra, rows, groups, taxable, sum, total, roundoff: round2(total - sum), beforeDiscount, discount: discountAmount, discountPercent: beforeDiscount > 0 ? Math.round(discountAmount / beforeDiscount * 1e6) / 1e4 : 0, discountCapped: disc.capped, billDiscount: round2(grossBefore - sum) };
 }
 
@@ -5453,7 +5653,7 @@ function sheetHTML(label) {
     ? ''
     : `<button class="eb no-print btn btn-sm btn-dark e ${spacing}" data-edit="${k}">Edit</button>`;
   const row = (l, v) => `<div>${l}</div><div>${v}</div>`;
-  const dateRow = (l, v, key) => `<div>${l}</div><div class="inv-date-cell"><input type="date" class="inv-date-input no-print" value="${v || ''}" data-meta="${key}" aria-label="${l}" title="Select ${l.toLowerCase()}"><span class="inv-date-text">${dt(v)}</span></div>`;
+  const dateRow = (l, v, key) => `<div>${l}</div><div class="inv-date-cell"><input type="date" class="inv-date-input no-print" value="${v || ''}" data-meta="${key}" ${key === 'due' || key === 'valid' ? `min="${esc(m.date || '')}"` : ''} aria-label="${l}" title="Select ${l.toLowerCase()}"><span class="inv-date-text">${dt(v)}</span></div>`;
   const taxLabel = C.intra ? 'CGST+SGST' : 'IGST';
 
   let taxRows = '';
@@ -5474,8 +5674,8 @@ function sheetHTML(label) {
       printTaxRows += `<tr><td colspan="6">${label}</td><td colspan="2">${value}</td></tr>`;
     }
   });
-  const roundRow = S.round ? row(L('Round off'), (C.roundoff < 0 ? '-' : '') + rs(Math.abs(C.roundoff))) : '';
-  const printRoundRow = S.round
+  const roundRow = S.round || C.roundoff ? row(L('Round off'), (C.roundoff < 0 ? '-' : '') + rs(Math.abs(C.roundoff))) : '';
+  const printRoundRow = S.round || C.roundoff
     ? `<tr><td colspan="6">${L('Round off')}</td><td colspan="2">${(C.roundoff < 0 ? '-' : '') + rs(Math.abs(C.roundoff))}</td></tr>`
     : '';
   const discountLabel = S.discount?.type === 'amount' ? L('Discount (before GST)') : `${L('Discount')} (${+C.discountPercent.toFixed(2)}%)`;
@@ -5510,7 +5710,7 @@ function sheetHTML(label) {
   const sellerInfo = `<div class="m-seller"><b class="comp-name">${esc(s.name)}</b>${mToggle('meta', 'Invoice details')}<span class="m-more"><br><b>GSTIN:</b> ${esc(s.gstin)}<br><b>${L('Address:')}</b> <span class="address-text">${ml(s.addr)}</span><br><b>${L('Mobile:')}</b> ${esc(s.mobile)}<br><b>${L('Email:')}</b> ${esc(s.email)}</span></div>`;
   const sellerElegant = `<div class="le-seller m-seller"><b class="comp-name">${esc(s.name)}</b>${mToggle('meta', 'Invoice details')}<span class="m-more"><div class="le-contact">${[s.addr ? `<span class="address-text">${ml(s.addr)}</span>` : '', s.mobile ? `${L('Mobile:')} ${esc(s.mobile)}` : '', s.email ? `${L('Email:')} ${esc(s.email)}` : ''].filter(Boolean).join('<span class="le-dot">•</span>')}</div>${s.gstin ? `<div class="le-gstin">GSTIN: ${esc(s.gstin)}</div>` : ''}</span></div>`;
   const logoDiv = !st.showLogo ? '' : `<div class="logo">${imageSrc(s.logo) ? `<img src="${esc(imageSrc(s.logo))}" alt="Logo">` : ''}</div>`;
-  const dateInput = (l, v, key) => `<input type="date" class="inv-date-input no-print" value="${v || ''}" data-meta="${key}" aria-label="${l}" title="Select ${l.toLowerCase()}"><span class="inv-date-text">${dt(v)}</span>`;
+  const dateInput = (l, v, key) => `<input type="date" class="inv-date-input no-print" value="${v || ''}" data-meta="${key}" ${key === 'due' || key === 'valid' ? `min="${esc(m.date || '')}"` : ''} aria-label="${l}" title="Select ${l.toLowerCase()}"><span class="inv-date-text">${dt(v)}</span>`;
   const quote = isQuotation();
   const docTitle = quote ? L('QUOTATION') : L('TAX INVOICE');
   if (quote) label = '';
@@ -5707,7 +5907,7 @@ function sheetHTML(label) {
       ${C.discount ? rcLine(L('Amount before discount'), rs(C.beforeDiscount)) + rcLine(discountLabel, '- ' + rs(C.discount)) : ''}
       ${rcLine(L('Taxable Amount'), hasItems ? rs(C.taxable) : '')}
       ${rcTax}
-      ${S.round ? rcLine(L('Round off'), (C.roundoff < 0 ? '-' : '') + rs(Math.abs(C.roundoff))) : ''}
+      ${S.round || C.roundoff ? rcLine(L('Round off'), (C.roundoff < 0 ? '-' : '') + rs(Math.abs(C.roundoff))) : ''}
       <div class="rc-rule rc-rule-strong"></div>
       ${rcLine(L('Total'), hasItems ? rs(C.total) : '', 'rc-total')}
       <div class="rc-rule"></div>
@@ -6256,8 +6456,11 @@ function saveInvoiceCustomer(form, gstinConfirmed = false) {
     shippingPhone: String(data.get('shippingPhone') || '').trim(),
     shippingEmail: String(data.get('shippingEmail') || '').trim()
   };
+  const previousPos = S.meta.pos;
+  syncPlaceOfSupply();
   if (!save()) {
     S.customer = previousCustomer;
+    S.meta.pos = previousPos;
     $('#customerDrawerError').textContent = 'Could not save the invoice customer details. Check browser storage and try again.';
     $('#customerDrawerError').hidden = false;
     return;
@@ -6837,7 +7040,7 @@ function renderOnboarding(error = '') {
         ${row([S.bank.bank, S.bank.acc, S.bank.upi].some(v => String(v || '').trim()), 'Bank & UPI', '(optional)')}
         ${row((S.terms.list || []).some(t => String(t || '').trim()), 'Terms & conditions', '(optional)')}
       </ul>
-      <p>Press <b>Create my first invoice</b>. On the invoice page, click the customer box to add your first customer and the item box to add your first item. You can change any of this later in <b>Business &amp; Invoice Setup</b>.</p></div>${err}`;
+      <p>Press “Create my first invoice”. On the invoice page, click the customer box to add your first customer and the item box to add your first item. You can change any of this later in Business &amp; Invoice Setup.</p></div>${err}`;
     footer.innerHTML = '<button type="button" class="btn btn-outline-secondary" data-ob-go="payment">Back</button><button type="button" class="btn btn-primary" data-ob-finish>Create my first invoice</button>';
   }
 }
@@ -6849,10 +7052,14 @@ function validateOnboardStep() {
     if (!String(S.seller.state || '').trim()) return 'Choose your state.';
     const gstin = String(S.seller.gstin || '').trim();
     if (gstin && !GST_RE.test(gstin.toUpperCase())) return 'The GSTIN does not look right. Check it, or clear the box and add it later.';
+    const problem = sellerDetailsProblem(S.seller);
+    if (problem) return problem;
   }
   if (onboardStep === 'payment') {
     const ifsc = String(S.bank.ifsc || '').trim();
     if (ifsc && !IFSC_RE.test(ifsc.toUpperCase())) return 'The IFSC code does not look right. It has 11 characters, for example SBIN0001234.';
+    const problem = bankDetailsProblem(S.bank);
+    if (problem) return problem;
   }
   return '';
 }
@@ -6897,7 +7104,9 @@ function askToRemoveSample({ title, confirmLabel, then }) {
   if (!info.total) { showToast('No sample data was found in your folder.', { type: 'info' }); if (then) then(); return; }
   confirmDestructiveAction({
     title, confirmLabel,
-    message: `This will remove ${info.text}. They match the example data, even if you added them yourself. Removed customers and items go to the Trash for 30 days. Your other data is kept.`,
+    message: info.byMatchOnly
+      ? `This will remove ${info.text} that match the example data. This browser did not record which ones the sample added, so a record of your own with exactly the same details would be removed too. Removed customers and items go to the Trash for 30 days.`
+      : `This will remove ${info.text} that Load sample data added. Your own records are kept, even ones with the same name. Removed customers and items go to the Trash for 30 days.`,
     action: async () => { await removeSampleData(); if (then) then(); }
   });
 }
@@ -7471,6 +7680,7 @@ document.addEventListener('click', async e => {
     if (!dc) return;
     S.customer = structuredClone(dc);
     S.customer.priceList = normalizePriceList(dc.priceList);
+    syncPlaceOfSupply();
     repriceInvoiceRows();   // the customer's price list decides the rates of rows already picked
     save(); render();
   }
@@ -7489,6 +7699,7 @@ document.addEventListener('click', async e => {
       confirmLabel: 'Clear Customer',
       action: () => {
         S.customer = structuredClone(EMPTY_STATE.customer);
+        syncPlaceOfSupply();
         save();
         render();
       }
@@ -8214,7 +8425,7 @@ $('#dashboardPage').addEventListener('change', e => {
     });
     return;
   }
-  if (t.type !== 'file' || !t.files[0]) return;
+  if (t.type !== 'file' || !t.files[0] || !t.dataset.p) return;   // only picture boxes (logo, signature); other file boxes such as Restore have their own handlers
   const [a, k] = t.dataset.p.split('.');
   readFileDataUrl(t.files[0]).then(dataUrl => {
     S[a][k] = dataUrl;
@@ -8645,6 +8856,7 @@ function startNewInvoice() {
   S.meta.due = '';
   if (isQuotation()) S.meta.valid = addDays(today, QUOTE_VALID_DAYS);
   S.customer = { name: '', gstin: '', phone: '', email: '', billing: '', shipSame: true, shipping: '', shippingPhone: '', shippingEmail: '' };
+  syncPlaceOfSupply();
   S.items = [{ name: '', hsn: '', rate: 0, qty: 1, unit: 'Nos', unitExplicit: false, gst: 18, disc: 0 }];
   S.discount = { type: 'percent', value: '', basis: 'taxable' };
   openQuantityMenuRow = -1;
@@ -8950,7 +9162,7 @@ function scheduleLabelTables() {
 }
 if (typeof MutationObserver === 'function') {
   const watch = new MutationObserver(scheduleLabelTables);
-  [$('#edBody'), $('#invoicePreviewDrawer')].forEach(node => { if (node) watch.observe(node, { childList: true, subtree: true }); });
+  [$('#edBody'), $('#invoicePreviewDrawer')].forEach(node => { if (node) watch.observe(node, { childList: true, subtree: true, characterData: true }); });
   scheduleLabelTables();
 }
 
@@ -8960,7 +9172,8 @@ function updateInvoiceSettingsSummary() {
   if (!out) return;
   const copies = +S.copies || 1;
   const paper = $('#paperSel')?.selectedOptions?.[0]?.textContent || '';
-  out.textContent = [isQuotation() ? 'Quotation' : '', S.priceMode === 'incl' ? 'GST included' : 'GST on top', `${copies} ${copies === 1 ? 'copy' : 'copies'}`, paper.replace(/\s*\(.*\)/, '')].filter(Boolean).join(' · ');
+  const word = text => (typeof uiLang !== 'undefined' && uiLang === 'hi' ? (hiLookup(text) ?? text) : text);
+  out.textContent = [isQuotation() ? word('Quotation') : '', word(S.priceMode === 'incl' ? 'GST included' : 'GST on top'), word(`${copies} ${copies === 1 ? 'copy' : 'copies'}`), paper.replace(/\s*\(.*\)/, '')].filter(Boolean).join(' · ');
 }
 document.addEventListener('click', e => {
   const toggle = e.target.closest('#invoiceSettingsToggle');
