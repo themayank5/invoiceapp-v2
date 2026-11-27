@@ -30,36 +30,42 @@ The layout also fits phones: see "Using it on a phone" below.
 
 ## Set up your data folder (first time only)
 
-1. Create an empty folder on your computer, for example `Documents\InvoiceGen-data`.
-2. In the app click **Connect Database**, choose that folder and allow the browser to edit it.
+On the first visit a **welcome window** opens with two choices.
+
+**Set up my business** (recommended)
+
+1. **Create your data folder.** Press **Choose location**, go to Documents or Desktop, press **New folder**, name it
+   (for example `InvoiceGen Data`), open it and press **Select Folder**. Allow the browser to edit it.
+   The browser does not allow Desktop, Documents or Downloads themselves, only a folder inside them.
+   An empty folder is used as it is; a folder with other files gets an `InvoiceGen Data` folder inside it.
    The app creates its six data files there (`customers.csv`, `items.csv`, `seller.csv`, `bank.csv`, `terms.csv`,
-   `invoices.csv`) and you can start straight away.
-3. On a new, empty folder a **welcome window** opens. Choose **Set up my business** (name, address, state, logo,
-   bank and terms, in three short steps) or **Try it with sample data**. Skipping it is fine; the invoice page
-   shows a small notice until your business details are added.
+   `invoices.csv`).
+2. **Your business** – name, address, state, GSTIN and logo.
+3. **Payment details** – bank, UPI and terms (can be skipped).
+
+Already have a data folder (a new browser or computer)? Choose **I already have a data folder** at the bottom of the
+welcome window. After the first visit the app remembers the folder and reconnects by itself.
 
 ### Not sure what to add? Try the sample data
 
-Choose **Try it with sample data** in the welcome window (or **Backup & Restore → Load sample data** at any time).
-The app adds made-up examples to your connected folder so every feature has something to show:
+Choose **Try it with sample data**. The window explains the steps:
+
+1. **Download** the sample folder (`sample-data/InvoiceGen-sample-data.zip`, also offered on the guide page and in
+   **Backup & Restore**).
+2. **Unzip** it (right-click → Extract All).
+3. Press **Connect sample folder** and choose the unzipped `InvoiceGen-sample-data` folder.
+
+The sample folder holds made-up data so every feature has something to show:
 
 - 5 customers and 15 items (some on low stock, one with no purchase price)
 - a sample business, **Sunrise Traders**, with a logo, a signature, bank and UPI details, and terms
-- 16 invoices, quotations and drafts dated over the last six months, with Paid and Not paid stamps, CGST/SGST and IGST,
-  a discount and a round-off, so the **Reports** pages are filled too
+- 5 saved invoices, 2 quotations and 2 drafts dated June to November 2026 (choose **All time** in Reports), with Paid and
+  Not paid stamps, CGST/SGST and IGST, a discount and a round-off
 
-A yellow bar stays at the top while sample data is loaded. **Remove sample data** (on that bar, or in
-**Backup & Restore**) takes the unchanged examples out again, puts the stock and invoice numbers back, and says exactly
-what it will remove before it does. Removed customers and items go to the **Trash** for 30 days. Your own data is
-kept.
-
-Because the sample data looks like real data to the app, use a **separate folder** for experiments and keep your real
-folder free of it.
-
-The guide page also offers the same data as a downloadable folder (`sample-data/InvoiceGen-sample-data.zip`): the six CSV
-files, the logo and signature pictures, and the 16 sample invoices. Unzip it and connect that folder if you prefer to
-start from files. Its invoices are dated June to November 2026, so choose **All time** in Reports. (The in-app button
-dates them from today instead.)
+While it is connected a yellow bar says so. Its only button is **Disconnect sample data**: the app lets go of the
+folder (nothing in it is deleted) and the welcome window opens again, ready for **Set up my business** in a new,
+empty folder. The sample data is never mixed into your own folder, and the app refuses the sample folder as the
+place for your real data. It recognises the sample folder by its `README.txt`.
 
 Back this folder up regularly (the app also has **Backup & Restore**). It is your only copy of your invoices.
 Each person who uses the app has their own folder; nothing is shared between users.
@@ -103,9 +109,8 @@ look for them by name.
 
 - `index.html`, `landing.css`, `landing.js` – the guide page (English and Hindi) that opens first
 - `app.html`, `app.js`, `style.css`, `i18n.js`, `folder-data.js` – the app itself
-- `sample-data.js` – the example data the app loads from "Try it with sample data" (customers, items, sellers, a logo,
-  a signature and the plan for the sample invoices)
-- `sample-data/` – the downloadable sample data folder (zip) offered on the guide page
+- `sample-data/` – the downloadable sample data folder (zip), offered in the welcome window, on the guide page and in
+  Backup & Restore
 - `lib/`, `fonts/`, `img/` – libraries, fonts and pictures, bundled so nothing loads from the internet
 - `manifest.webmanifest`, `sw.js`, `icons/` – installable app and offline start
 

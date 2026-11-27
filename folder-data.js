@@ -273,17 +273,6 @@ async function readSettingsFile() {
   } catch { return null; }
 }
 
-// Numbers already used are never handed out again, so counters only go up.
-function mergeNumberingCounters(remoteCounters) {
-  if (!remoteCounters || typeof remoteCounters !== 'object') return false;
-  let changed = false;
-  Object.entries(remoteCounters).forEach(([key, value]) => {
-    const number = Number(value) || 0;
-    if (number > (Number(numbering.counters[key]) || 0)) { numbering.counters[key] = number; changed = true; }
-  });
-  return changed;
-}
-
 function applyRemoteSettings(remote) {
   settingsApplying = true;
   try {
@@ -316,18 +305,22 @@ function applyRemoteSettings(remote) {
   }
 }
 
-// On connecting: the newer of the browser's settings and the folder's settings wins; counters only go up either way.
+// On connecting: the newer of the browser's settings and the folder's settings wins; the invoice counters are always the folder's own.
 async function syncSettingsWithFolder() {
   const remote = await readSettingsFile();
+  // Invoice numbers belong to the folder: the counters of a folder connected before (the sample data, another business)
+  // must never carry over. Take this folder's own counters; without them the numbers follow its saved invoices.
+  const own = remote?.numbering || {};
+  numbering.counters = own.counters && typeof own.counters === 'object' ? { ...own.counters } : {};
+  numbering.ignored = Array.isArray(own.ignored) ? [...own.ignored] : [];
+  settingsApplying = true; try { saveNumbering(); } finally { settingsApplying = false; }
   if (!remote) { await writeSettingsFile(); return 'written'; }
-  const countersRaised = mergeNumberingCounters(remote.numbering?.counters);
-  if (countersRaised) { settingsApplying = true; try { saveNumbering(); } finally { settingsApplying = false; } }
   const localSaved = localStorage.getItem(SETTINGS_SAVED_KEY);
   if (!localSaved || (remote.savedAt && remote.savedAt > localSaved)) {
     applyRemoteSettings(remote);
     return 'applied';
   }
-  if (remote.savedAt !== localSaved || countersRaised) await writeSettingsFile();
+  if (remote.savedAt !== localSaved) await writeSettingsFile();
   return 'kept';
 }
 

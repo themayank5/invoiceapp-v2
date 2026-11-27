@@ -757,12 +757,11 @@ function backupPageHTML() {
     </div>
     <div class="backup-card">
       <h2>Sample data</h2>
-      <p>Not sure what to enter? Add example customers, items, a sample business (with logo and signature), invoices, quotations and drafts to see how every feature works, reports included. They are made up.
+      <p>Want to see every feature with example data? Download the sample folder, unzip it and connect it. It has a sample business, customers, items, invoices, quotations and drafts, all made up.</p>
       <div class="d-flex flex-wrap gap-2">
-        <button type="button" class="btn btn-outline-primary" data-sample-load ${connected ? '' : 'disabled'}>Load sample data</button>
-        <button type="button" class="btn btn-outline-danger" data-sample-remove ${connected ? '' : 'disabled'}>Remove sample data</button>
+        <a class="btn btn-outline-primary" href="${SAMPLE_ZIP_URL}" download>⬇ Download sample data (.zip)</a>
       </div>
-      <p class="backup-note">Removing takes out the example records that are still unchanged, and puts the invoice numbers and stock back. Your own customers, items and invoices are kept.</p>
+      <p class="backup-note">The sample is a separate folder: connecting it does not change your own data folder. Disconnect it to come back here.</p>
     </div>
     <div class="backup-status" id="backupStatus" role="status" hidden></div>
   </div>`;
@@ -774,7 +773,7 @@ function updateBackupReminder() {
   const days = backupMeta.reminderDays;
   const snoozed = backupMeta.snoozeUntil && new Date(backupMeta.snoozeUntil).getTime() > Date.now();
   const due = !backupMeta.lastBackup || backupDaysSince(backupMeta.lastBackup) >= days;
-  const show = backupDatabaseConnected() && days > 0 && due && !snoozed && edSec !== 'backup';
+  const show = backupDatabaseConnected() && !sampleModeOn() && days > 0 && due && !snoozed && edSec !== 'backup';   // no reminder for the sample folder
   banner.hidden = !show;
   if (!show) return;
   $('#backupReminderText').textContent = backupMeta.lastBackup
@@ -4350,224 +4349,6 @@ function save() {
   setTimeout(updateTrashBadge, 0);   // after the page code has finished loading
 
 
-  /* ---------- sample data: load example records, or remove them again ---------- */
-  function sampleRecords() {
-    const d = window.SAMPLE_DATA;
-    if (!d) throw new Error('The sample data file did not load. Reload the app and try again.');
-    return {
-      customers: parseCustomerCsv(d.customers).customers,
-      items: parseItemCsv(d.items).items,
-      seller: parseProfileCsv('seller', d.seller),
-      bank: parseProfileCsv('bank', d.bank),
-      terms: parseProfileCsv('terms', d.terms)
-    };
-  }
-  const databaseConnectedForSample = () => customerCsvHandle && itemCsvHandle && invoiceCsvHandle && profileCsvHandles.seller && profileCsvHandles.bank && profileCsvHandles.terms;
-
-  /* The sample invoices: built from the plan in sample-data.js, dated back from today so every report period has data. */
-  const SAMPLE_META_KEY = 'invoicegen_sample_meta_v1';
-  function sampleInvoiceRecords(sample) {
-    const data = window.SAMPLE_DATA;
-    const seller = sample.seller.find(p => p.name === 'Sunrise Traders') || sample.seller[0];
-    const bank = sample.bank[0], terms = sample.terms[0];
-    const today = new Date();
-    const dateOf = days => isoDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - days));
-    const nextSeq = {};
-    const numberFor = (date, quote) => {   // continues the numbers already in use, one series per financial year
-      const fy = financialYearLabel(date), key = quote ? `Q:${fy}` : fy;
-      if (nextSeq[key] === undefined) nextSeq[key] = parseFinancialYearNumber(nextInvoiceNumber(date, { quote })).seq;
-      return formatInvoiceNumber(fy, nextSeq[key]++, quote);
-    };
-    const keep = S;
-    const records = [];
-    try {
-      data.plan.forEach(entry => {
-        const customer = sample.customers.find(c => c.name === entry.cust);
-        if (!customer) return;
-        const date = dateOf(entry.d), kind = entry.kind;
-        const state = blankInvoice();
-        state.seller = { ...state.seller, ...structuredClone(seller) };
-        state.bank = { ...state.bank, ...structuredClone(bank) };
-        state.terms = { list: [...(terms?.terms || [])] };
-        state.sign = { sig: data.signature, companyName: seller.name };
-        state.meta = { no: '', date, due: kind === 'quote' ? '' : dateOf(entry.d - 15), pos: String(customer.gstin || '').slice(0, 2) || '19', ...(kind === 'quote' ? { valid: dateOf(entry.d - 15) } : {}) };
-        state.customer = { name: customer.name, gstin: customer.gstin || '', phone: customer.phone || '', email: customer.email || '', billing: customer.billing || customer.address || '', priceList: customer.priceList, contacts: structuredClone(customer.contacts || []), shippingAddresses: structuredClone(customer.shippingAddresses || []), active: true, shipSame: true, shipping: '', shippingPhone: '', shippingEmail: '' };
-        state.items = entry.lines.map(([name, qty]) => {
-          const item = sample.items.find(i => i.name === name);
-          return { name, hsn: item.hsn, rate: itemRateFor(item, customer.priceList), qty, unit: normalizeItemUnit(item.unit), unitExplicit: true, gst: normalizeItemGst(item.gst), disc: 0 };
-        });
-        state.discount = entry.discount ? { type: 'percent', value: String(entry.discount) } : { type: 'percent', value: '' };
-        state.round = Boolean(entry.round);
-        state.docType = kind === 'quote' ? 'quotation' : 'invoice';
-        state.watermark = kind === 'draft' ? 'draft' : kind === 'quote' ? '' : (entry.paid ? 'paid' : 'notpaid');
-        const invoiceNo = kind === 'draft' ? '' : numberFor(date, kind === 'quote');
-        state.meta.no = invoiceNo;
-        S = state;
-        const total = calc().total;
-        S = keep;
-        const snapshot = { ...structuredClone(state), paper: '', sample: true };
-        if (kind === 'draft') snapshot.draftId = newDraftId();
-        records.push({ invoiceNo, customerName: customer.name, total, invoiceDate: date, status: kind === 'saved' ? 'saved' : kind === 'quote' ? 'quotation' : 'draft', snapshot });
-      });
-    } finally { S = keep; }
-    data.plan.forEach((entry, index) => {   // link a quotation to the invoice it became
-      if (entry.convertedTo === undefined || !records[index] || !records[entry.convertedTo]) return;
-      records[index].snapshot.convertedTo = records[entry.convertedTo].invoiceNo;
-      records[entry.convertedTo].snapshot.quoteRef = records[index].invoiceNo;
-    });
-    return records;
-  }
-
-  async function loadSampleData() {
-    if (!databaseConnectedForSample()) { showCsvHelp('all', 'Connect your database folder first. The sample data is added to it.'); return false; }
-    try {
-      const sample = sampleRecords();
-      const seenCustomers = new Set(importedCustomers.map(customerDuplicateKey));
-      const newCustomers = sample.customers.filter(c => !seenCustomers.has(customerDuplicateKey(c)));
-      const seenItems = new Set(catalogItems.map(item => itemNameKey(item.name)));
-      const newItems = sample.items.filter(item => !seenItems.has(itemNameKey(item.name)));
-      if (newCustomers.length) await persistCustomerList([...importedCustomers, ...newCustomers], true);
-      if (newItems.length) await persistCatalogItems([...catalogItems, ...newItems], true);
-      const added = { customers: newCustomers.length, items: newItems.length };
-      const marks = { customers: newCustomers.map(customerDuplicateKey), items: newItems.map(item => itemNameKey(item.name)) };
-      for (const kind of ['seller', 'bank', 'terms']) {
-        const have = new Set(profileList(kind).map(p => profileIdentity(kind, p)));
-        const fresh = sample[kind].filter(p => !have.has(profileIdentity(kind, p)));
-        if (fresh.length) await persistProfiles(kind, [...profileList(kind), ...fresh]);
-        added[kind] = fresh.length;
-        marks[kind] = fresh.map(p => profileIdentity(kind, p));
-      }
-      // Remember them even if nothing new was added this time, so removal knows it was tracked in this browser.
-      addSampleMarks(marks);
-      added.invoices = 0;
-      if (!archivedInvoices.some(invoice => invoice.snapshot?.sample)) {
-        try {   // remember the invoice numbers as they were, so removing the sample puts them back
-          if (!localStorage.getItem(SAMPLE_META_KEY)) localStorage.setItem(SAMPLE_META_KEY, JSON.stringify({ counters: numbering.counters, ignored: numbering.ignored }));
-        } catch (error) { /* storage blocked */ }
-        const records = sampleInvoiceRecords(sample);
-        await persistInvoiceArchive([...archivedInvoices, ...records]);
-        records.filter(r => r.status !== 'draft').forEach(r => noteInvoiceNumberUsed(r.invoiceNo));
-        added.invoices = records.length;
-        if (numbering.auto && !archivePreviewInvoice) S.meta.no = nextInvoiceNumber(S.meta.date);   // the invoice being typed must not reuse a sample number
-        save();
-      }
-      const total = Object.values(added).reduce((a, b) => a + b, 0);
-      showToast(total ? `Sample data added: ${added.customers} customers, ${added.items} items, ${added.invoices} invoices and quotations, ${added.seller} sellers, ${added.bank} bank entries.` : 'The sample data is already there.', { type: total ? 'success' : 'info', duration: 7000 });
-      setSampleMode(true);
-      render();
-      if (setupWizard) renderSetupStep(); else if (edSec && !$('#dashboardPage').hidden) openEditor(edSec);
-      return true;
-    } catch (error) {
-      console.error('Could not load the sample data.', error);
-      showToast(error.message || 'Could not load the sample data.', { type: 'error' });
-      return false;
-    }
-  }
-
-  // What Remove sample data would delete right now, so the question can say it plainly.
-  // Which records "Load sample data" added. Records that were skipped because you already had them are not listed,
-  // so your own "Basmati Rice" is never removed with the sample. Kept in this browser.
-  const SAMPLE_ADDED_KEY = 'invoicegen_sample_added_v1';
-  function loadSampleMarks() {
-    try { const marks = JSON.parse(localStorage.getItem(SAMPLE_ADDED_KEY) || 'null'); return marks && typeof marks === 'object' ? marks : null; } catch (error) { return null; }
-  }
-  function addSampleMarks(added) {
-    const marks = loadSampleMarks() || {};
-    Object.entries(added).forEach(([kind, keys]) => { marks[kind] = [...new Set([...(marks[kind] || []), ...keys])]; });
-    try { localStorage.setItem(SAMPLE_ADDED_KEY, JSON.stringify(marks)); } catch (error) { /* storage blocked: removal falls back to matching */ }
-  }
-  function clearSampleMarks() { try { localStorage.removeItem(SAMPLE_ADDED_KEY); } catch (error) { /* storage blocked */ } }
-
-  // What Remove sample data would take out. With marks: only what the sample added and is still unchanged.
-  // Without marks (sample loaded before this was kept, or in another browser): every unchanged record that matches the sample.
-  function sampleRemovalPlan() {
-    const sample = sampleRecords();
-    const marks = loadSampleMarks();
-    const pick = (kind, keys) => {
-      const sampleKeys = new Set(keys);
-      return marks ? new Set((marks[kind] || []).filter(key => sampleKeys.has(key))) : sampleKeys;
-    };
-    return {
-      sample,
-      byMatchOnly: !marks,
-      customers: pick('customers', sample.customers.map(customerDuplicateKey)),
-      items: pick('items', sample.items.map(item => itemNameKey(item.name))),
-      seller: pick('seller', sample.seller.map(p => profileIdentity('seller', p))),
-      bank: pick('bank', sample.bank.map(p => profileIdentity('bank', p))),
-      terms: pick('terms', sample.terms.map(p => profileIdentity('terms', p)))
-    };
-  }
-
-  function sampleCounts() {
-    const plan = sampleRemovalPlan();
-    const counts = {
-      customers: importedCustomers.filter(c => plan.customers.has(customerDuplicateKey(c))).length,
-      items: catalogItems.filter(item => plan.items.has(itemNameKey(item.name))).length,
-      invoices: archivedInvoices.filter(invoice => invoice.snapshot?.sample).length
-    };
-    for (const kind of ['seller', 'bank']) counts[kind] = profileList(kind).filter(p => plan[kind].has(profileIdentity(kind, p))).length;
-    const parts = [[counts.customers, 'customers'], [counts.items, 'items'], [counts.invoices, 'invoices and quotations'], [counts.seller, 'sellers'], [counts.bank, 'bank entries']].filter(([n]) => n);
-    return { counts, byMatchOnly: plan.byMatchOnly, text: parts.map(([n, label]) => `${n} ${label}`).join(', '), total: parts.reduce((a, [n]) => a + n, 0) };
-  }
-
-  async function removeSampleData() {
-    if (!databaseConnectedForSample()) { showCsvHelp('all', 'Connect your database folder first.'); return false; }
-    try {
-      const plan = sampleRemovalPlan();
-      const sample = plan.sample;
-      const removed = { invoices: 0 };
-      const sampleInvoices = archivedInvoices.filter(invoice => invoice.snapshot?.sample);
-      if (sampleInvoices.length) {   // first, so the stock they used goes back
-        await persistInvoiceArchive(archivedInvoices.filter(invoice => !invoice.snapshot?.sample));
-        removed.invoices = sampleInvoices.length;
-        try {
-          const meta = JSON.parse(localStorage.getItem(SAMPLE_META_KEY) || 'null');
-          if (meta) { numbering.counters = meta.counters || {}; numbering.ignored = meta.ignored || []; saveNumbering(); }
-          localStorage.removeItem(SAMPLE_META_KEY);
-        } catch (error) { /* storage blocked */ }
-        if (numbering.auto && !archivePreviewInvoice) S.meta.no = nextInvoiceNumber(S.meta.date);
-      }
-      const customerKeys = plan.customers;
-      const itemKeys = plan.items;
-      const keepCustomers = importedCustomers.filter(c => !customerKeys.has(customerDuplicateKey(c)));
-      const keepItems = catalogItems.filter(item => !itemKeys.has(itemNameKey(item.name)));
-      removed.customers = importedCustomers.length - keepCustomers.length; removed.items = catalogItems.length - keepItems.length;
-      // Everything removed goes to the Trash first, so it can still be brought back.
-      const batch = `sample-${Date.now()}`;   // one removal: its entries go back by their original positions
-      importedCustomers.forEach((c, index) => { if (customerKeys.has(customerDuplicateKey(c))) addToTrash('customer', c.name || 'Customer', c, index, batch); });
-      catalogItems.forEach((item, index) => { if (itemKeys.has(itemNameKey(item.name))) addToTrash('item', item.name || 'Item', item, index, batch); });
-      if (removed.customers) await persistCustomerList(keepCustomers, true);
-      if (removed.items) await persistCatalogItems(keepItems, true);
-      for (const kind of ['seller', 'bank', 'terms']) {
-        const gone = plan[kind];
-        const keep = profileList(kind).filter(p => !gone.has(profileIdentity(kind, p)));
-        removed[kind] = profileList(kind).length - keep.length;
-        if (removed[kind]) await persistProfiles(kind, keep);
-      }
-      // The sample business that was filled into the invoice goes too, so a real setup starts empty.
-      const blank = blankInvoice();
-      if (sample.seller.some(p => p.name === S.seller.name)) S.seller = blank.seller;
-      if (sample.bank.some(p => p.bank === S.bank.bank && p.upi === S.bank.upi)) S.bank = blank.bank;
-      if (sample.terms.some(p => (p.terms || []).join('|') === (S.terms.list || []).join('|'))) S.terms = blank.terms;
-      if (S.sign?.sig && S.sign.sig === window.SAMPLE_DATA?.signature) S.sign = blank.sign;
-      save();
-      setSampleMode(false);
-      clearSampleMarks();
-      const total = Object.values(removed).reduce((a, b) => a + b, 0);
-      const keptNote = plan.byMatchOnly
-        ? 'Records were matched by their details, so a record of your own with exactly the same details may have been removed too. Removed customers and items are in the Trash.'
-        : 'Only records added by Load sample data were removed; your own records were kept, even ones with the same name.';
-      showToast(total ? `Sample data removed: ${removed.customers} customers, ${removed.items} items, ${removed.invoices} invoices and quotations, ${removed.seller} sellers, ${removed.bank} bank entries. ${keptNote}` : 'No sample data was found.', { type: total ? 'success' : 'info', duration: 9000 });
-      render();
-      if (edSec && !$('#dashboardPage').hidden) openEditor(edSec);
-      return true;
-    } catch (error) {
-      console.error('Could not remove the sample data.', error);
-      showToast(error.message || 'Could not remove the sample data.', { type: 'error' });
-      return false;
-    }
-  }
-
   function profileCsvContent(kind, profiles) {
     const quote = value => `"${csvSafeText(value).replace(/"/g, '""')}"`;
     const headers = kind === 'seller'
@@ -5131,7 +4912,9 @@ function save() {
     requestPermission = true,
     showPicker = true,
     showErrors = true,
-    rememberDirectory = true
+    rememberDirectory = true,
+    createMissing = false,   // the welcome window made this folder just now: create the data files without asking
+    fromWelcome = false      // the welcome window carries on by itself afterwards (no second welcome)
   } = {}) {
     let handles;
     const createdFiles = [];
@@ -5172,6 +4955,15 @@ function save() {
 Set it up as your new data folder? Six empty data files (customers, items, seller, bank, terms, invoices) will be created in it.
 
 Choose Cancel if this is the wrong folder.`)) return;
+      }
+      if (pickedByUser || createMissing) {
+        const missing = [];
+        for (const kind of CSV_FILES) {
+          try { await directoryHandle.getFileHandle(`${kind}.csv`); } catch (error) {
+            if (error.name !== 'NotFoundError') throw error;
+            missing.push(kind);
+          }
+        }
         for (const kind of missing) {
           const created = await directoryHandle.getFileHandle(`${kind}.csv`, { create: true });
           const writable = await created.createWritable();
@@ -5255,10 +5047,27 @@ Choose Cancel if this is the wrong folder.`)) return;
         csvConnectionNotice = 'Connected for this session, but this browser could not remember the folder. It may need to be selected again after refresh.';
       }
     }
+    try { await syncSampleMode(directoryHandle); } catch (error) { console.warn('Could not check for the sample folder.', error); }
+    // An existing folder in a browser without a business on the invoice (a new browser or computer): use the folder's own business.
+    if (!sampleModeOn() && !String(S.seller.name || '').trim() && sellerProfiles.length) {
+      applyProfile('seller', sellerProfiles[0]);
+      if (bankProfiles.length && ![S.bank.bank, S.bank.acc, S.bank.upi].some(v => String(v || '').trim())) applyProfile('bank', bankProfiles[0]);
+      if (termsProfiles.length && !(S.terms.list || []).some(t => String(t || '').trim())) applyProfile('terms', termsProfiles[0]);
+      const signed = [...archivedInvoices].reverse().find(record => record.snapshot?.sign?.sig);
+      if (!S.sign?.sig && signed) S.sign = { ...S.sign, sig: signed.snapshot.sign.sig };
+      save();
+    }
+    // A new invoice (no customer, no items yet) takes the next number of THIS folder: 3 saved invoices -> 004.
+    // An invoice being edited keeps its number.
+    const untouched = !String(S.customer?.name || '').trim() && !(S.items || []).some(item => String(item.name || '').trim());
+    if (numbering.auto && (untouched || !archivedInvoices.some(record => record.status !== 'draft' && record.invoiceNo === S.meta.no))) {
+      const next = nextInvoiceNumber(S.meta.date);
+      if (S.meta.no !== next) { S.meta.no = next; save(); }
+    }
     refreshCsvConnectionStatus();
     bootstrap.Modal.getOrCreateInstance($('#csvHelpModal')).hide();
     render();
-    if (databaseIsEmpty && !String(S.seller.name || '').trim()) setTimeout(() => openOnboarding('start'), 450);   // a new, empty folder: a pop-up asks how to start (after the folder pop-up has closed)
+    if (databaseIsEmpty && !fromWelcome && !String(S.seller.name || '').trim()) setTimeout(() => openOnboarding('start'), 450);   // a new, empty folder: a pop-up asks how to start (after the folder pop-up has closed)
     else if (edSec === 'invoiceArchive' && !$('#dashboardPage').hidden) openEditor('invoiceArchive');
     if (createdFiles.length) showToast(`New data folder ready: created ${createdFiles.join(', ')}. Start with Business & Invoice Setup.`, { type: 'success', duration: 9000 });
     folderNotes.forEach(note => showToast(note, { type: 'info' }));
@@ -5288,6 +5097,7 @@ Choose Cancel if this is the wrong folder.`)) return;
   async function restoreCsvConnection() {
     try {
       const directoryHandle = await withTimeout(getSavedCsvDirectory(), 4000, null);
+      firstVisit = !directoryHandle;   // no folder remembered in this browser: welcome the user instead of asking for a database
       if (!directoryHandle) return;
       const permission = await directoryHandle.queryPermission({ mode: 'readwrite' });
       if (permission !== 'granted') {
@@ -6887,10 +6697,6 @@ function setupFirstInvoiceHTML() {
       ${row((S.terms.list || []).some(t => String(t || '').trim()), 'Terms & conditions', '(optional)')}
     </ul>
     <p>Press <b>Create my first invoice</b>. On the invoice page, click the customer box to add your first customer, and the item box to add your first item.</p>
-    <div class="setup-first-sample">
-      <div><strong>Want to look around first?</strong><div class="form-text">Add example customers, items, sellers and bank details. They are made up. You can remove them any time in Backup &amp; Restore.</div></div>
-      <button type="button" class="btn btn-outline-primary" data-sample-load>Load sample data</button>
-    </div>
   </div>`;
 }
 
@@ -6938,25 +6744,105 @@ function setSampleMode(on) {
   try { if (on) localStorage.setItem(SAMPLE_MODE_KEY, '1'); else localStorage.removeItem(SAMPLE_MODE_KEY); } catch (error) { /* storage blocked */ }
   updateSampleBanner();
 }
+const SAMPLE_ZIP_URL = 'sample-data/InvoiceGen-sample-data.zip';
+const SAMPLE_ZIP_FOLDER = 'InvoiceGen-sample-data';
+
+// The downloadable sample folder is known by its README.txt.
+async function isSampleFolder(dir) {
+  if (!dir || typeof dir.getFileHandle !== 'function') return false;
+  try {
+    const text = await (await (await dir.getFileHandle('README.txt')).getFile()).text();
+    return /^\uFEFF?\s*InvoiceGen sample data/.test(text);
+  } catch (error) { return false; }
+}
+
+// After a folder is connected: the sample folder turns sample mode on (with the sample business on the invoice);
+// any other folder turns it off, and the sample business is taken off the invoice.
+async function syncSampleMode(dir) {
+  const sample = await isSampleFolder(dir);
+  if (sample === sampleModeOn()) return;
+  S = blankInvoice();
+  S.lang = uiLang;
+  S.round = roundOffDefault;
+  if (sample) {
+    const seller = sellerProfiles[0], bank = bankProfiles[0], terms = termsProfiles[0];
+    if (seller) applyProfile('seller', seller);
+    if (bank) applyProfile('bank', bank);
+    if (terms) applyProfile('terms', terms);
+    const signed = [...archivedInvoices].reverse().find(record => record.snapshot?.sign?.sig);
+    if (signed) S.sign = { ...S.sign, sig: signed.snapshot.sign.sig, companyName: seller?.name || signed.snapshot.sign.companyName || '' };
+  }
+  if (numbering.auto) S.meta.no = nextInvoiceNumber(S.meta.date);
+  save();
+  setSampleMode(sample);
+}
+
+// The yellow bar's only button: the sample folder is let go (nothing in it is deleted) and the welcome window opens again.
+async function disconnectSampleData() {
+  await disconnectDatabase();
+  if (backupDatabaseConnected()) return;   // the disconnect failed; its own message is showing
+  S = blankInvoice();
+  S.lang = uiLang;
+  S.round = roundOffDefault;
+  save();
+  setSampleMode(false);
+  location.reload();                        // starts like a first visit: no folder remembered, so the welcome window opens
+}
+
 function updateSampleBanner() {
   const banner = $('#sampleBanner');
   if (banner) banner.hidden = !sampleModeOn() || Boolean(archivePreviewInvoice);
+  updateBackupReminder();
 }
 
-const ONBOARD_STEPS = [['business', 'Your business'], ['payment', 'Payment details'], ['done', 'All set']];
+const ONBOARD_STEPS = [['folder', 'Data folder'], ['business', 'Your business'], ['payment', 'Payment details'], ['done', 'All set']];
 let onboardStep = 'start';
+let onboardFolderStep = false;   // the setup started without a data folder, so the folder is step 1
+let onboardFolderNote = '';       // "✓ Data folder ready: ..." shown on the next step
+const DATA_FOLDER_NAME = 'InvoiceGen Data';
+
+// The user picks where the data goes; the app makes (or finds) the named folder there and connects it.
+// A place that already is, or already holds, an InvoiceGen data folder is used as it is, so nothing is ever doubled.
+async function createDataFolder(folderName) {
+  const place = await window.showDirectoryPicker({ id: 'invoicegen-data-location', mode: 'readwrite', startIn: 'documents' });
+  const holdsData = async dir => (await folderDataState(dir)).complete;
+  let folder = null, existing = false;
+  if (await holdsData(place)) { folder = place; existing = true; }
+  if (!folder) {
+    try {
+      const inside = await place.getDirectoryHandle(folderName);
+      if (await holdsData(inside)) { folder = inside; existing = true; }
+    } catch (error) { if (error.name !== 'NotFoundError' && error.name !== 'TypeMismatchError') throw error; }
+  }
+  if (!folder) {
+    // An empty folder (one the user just made in the folder window) is used as it is. A folder that already holds
+    // other things gets the data in a folder of its own inside it, so the user's files are never mixed with the data.
+    let empty = true;
+    for await (const _ of place.keys()) { empty = false; break; }
+    folder = empty || place.name === folderName ? place : await place.getDirectoryHandle(folderName, { create: true });
+  }
+  if (await isSampleFolder(folder)) {
+    throw new Error('That is the sample data folder. For your own business, make a new, empty folder and choose that.');
+  }
+  const ok = await connectAllCsvs(folder, { requestPermission: true, showPicker: false, showErrors: false, rememberDirectory: true, createMissing: true, fromWelcome: true });
+  if (ok !== true) throw new Error(csvConnectionNotice || 'The data folder could not be set up. Try another location.');
+  firstVisit = false;
+  return { folder, existing, place: place.name };
+}
 
 function onboardModal() { return bootstrap.Modal.getOrCreateInstance($('#onboardModal')); }
 
 function openOnboarding(step = 'start') {
+  if (step !== 'folder' && backupDatabaseConnected()) { onboardFolderStep = false; onboardFolderNote = ''; }   // the folder is already there
   onboardStep = step;
   renderOnboarding();
   onboardModal().show();
 }
 
 function onboardStepsBar() {
-  const index = ONBOARD_STEPS.findIndex(([key]) => key === onboardStep);
-  return `<ol class="onboard-steps" aria-label="Setup progress">${ONBOARD_STEPS.map(([key, label], i) => `<li class="${i < index ? 'is-done' : ''} ${i === index ? 'is-current' : ''}"><span>${i < index ? '✓' : i + 1}</span>${label}</li>`).join('')}</ol>`;
+  const steps = onboardFolderStep ? ONBOARD_STEPS : ONBOARD_STEPS.filter(([key]) => key !== 'folder');
+  const index = steps.findIndex(([key]) => key === onboardStep);
+  return `<ol class="onboard-steps" aria-label="Setup progress">${steps.map(([key, label], i) => `<li class="${i < index ? 'is-done' : ''} ${i === index ? 'is-current' : ''}"><span>${i < index ? '✓' : i + 1}</span>${label}</li>`).join('')}</ol>`;
 }
 
 function onboardField(label, path, { type = 'text', placeholder = '', required = false, attrs = '' } = {}) {
@@ -6968,23 +6854,68 @@ function onboardField(label, path, { type = 'text', placeholder = '', required =
 function renderOnboarding(error = '') {
   const title = $('#onboardTitle'), sub = $('#onboardSub'), body = $('#onboardBody'), footer = $('#onboardFooter');
   const err = `<div class="onboard-error" id="onboardError" role="alert">${esc(error)}</div>`;
+  const connected = backupDatabaseConnected();
+  const canPick = typeof window.showDirectoryPicker === 'function';
+  $('#onboardModal .btn-close').hidden = !connected;   // before there is a data folder the window cannot be closed: the app needs one
+  if (onboardStep === 'sample') {
+    title.textContent = 'Try InvoiceGen with sample data';
+    sub.textContent = 'A ready-made folder with a sample business, customers, items, invoices and reports. Your own data is not touched.';
+    body.innerHTML = `<ol class="onboard-sample-steps">
+        <li><div><strong>Download the sample folder.</strong></div><a class="btn btn-sm btn-outline-primary" href="${SAMPLE_ZIP_URL}" download>⬇ Download sample data (.zip)</a></li>
+        <li><div><strong>Unzip it.</strong> <span>Open your Downloads folder, right-click the zip file, choose Extract All and press Extract.</span></div></li>
+        <li><div><strong>Connect it.</strong> <span>Press Connect sample folder below, open the unzipped folder and press Select Folder. Allow the app to edit files when the browser asks.</span></div></li>
+        <li><div><strong>Look around.</strong> <span>Make an invoice, and open View All Invoices, Reports, Customer Details and Item Details. Everything is made up, and what you change stays in the sample folder.</span></div></li>
+        <li><div><strong>When you are done,</strong> <span>press Disconnect sample data on the yellow bar. This window opens again, and you can set up your own business in a new folder.</span></div></li>
+      </ol>
+      <p class="onboard-folder-note">The sample invoices are dated June to November 2026. In Reports, choose All time to see all of them.</p>
+      ${canPick ? '' : '<div class="onboard-error">This browser cannot open a folder on your computer. Open the app in Chrome or Edge on a computer.</div>'}
+      ${err}`;
+    footer.innerHTML = `<button type="button" class="btn btn-outline-secondary" data-ob-go="start">Back</button><button type="button" class="btn btn-primary" data-ob-connect-sample ${canPick ? '' : 'disabled'}>📁 Connect sample folder</button>`;
+    return;
+  }
+  if (onboardStep === 'folder') {
+    title.textContent = 'Create your data folder';
+    sub.textContent = 'Your invoices, customers and items are saved in a folder on this computer.';
+    body.innerHTML = `${onboardStepsBar()}
+      <div class="onboard-folder">
+        <div class="onboard-folder-icon" aria-hidden="true">📁</div>
+        <div>
+          <p><strong>Make a new, empty folder for your data.</strong> <span>Suggested name:</span> <b class="onboard-folder-name">📁 ${esc(DATA_FOLDER_NAME)}</b></p>
+          <ol class="onboard-folder-steps">
+            <li>Press Choose location.</li>
+            <li>In the window that opens, go to Documents or Desktop.</li>
+            <li>Press New folder, type the name and press Enter.</li>
+            <li>Open the new folder and press Select Folder.</li>
+            <li>Allow the app to save files there when the browser asks.</li>
+          </ol>
+          <p class="onboard-folder-note">The browser does not let apps use Desktop, Documents or Downloads themselves, only a folder inside them.</p>
+          <p class="onboard-folder-note">Back up this folder now and then (Backup &amp; Restore). It is the only copy of your invoices.</p>
+        </div>
+      </div>
+      ${canPick ? '' : '<div class="onboard-error">This browser cannot save to a folder on your computer. Open the app in Chrome or Edge on a computer.</div>'}
+      ${err}`;
+    footer.innerHTML = `<button type="button" class="btn btn-outline-secondary" data-ob-go="start">Back</button><button type="button" class="btn btn-primary" data-ob-pick-location ${canPick ? '' : 'disabled'}>📁 Choose location</button>`;
+    return;
+  }
   if (onboardStep === 'start') {
     title.textContent = 'Welcome to InvoiceGen';
-    sub.textContent = 'How would you like to start?';
-    body.innerHTML = `<div class="onboard-choices">
-        <button type="button" class="onboard-choice is-primary" data-ob-go="business">
+    sub.textContent = connected ? 'How would you like to start?' : 'Make GST invoices on your own computer. How would you like to start?';
+    body.innerHTML = `${canPick ? '' : '<div class="onboard-error">This browser cannot save to a folder on your computer, so the app cannot keep your data here. Open the app in Chrome or Edge on a computer.</div>'}<div class="onboard-choices">
+        <button type="button" class="onboard-choice is-primary" data-ob-choose="business" ${canPick || connected ? '' : 'disabled'}>
           <span class="onboard-choice-icon" aria-hidden="true">🏢</span>
           <strong>Set up my business</strong>
-          <span>Add your business name and address. It takes about two minutes. Then you can create invoices.</span>
+          <span>${connected ? 'Add your business name and address. It takes about two minutes. Then you can create invoices.' : 'Create a folder for your data, then add your business name and address. It takes about two minutes.'}</span>
           <em>Recommended</em>
         </button>
-        <button type="button" class="onboard-choice" data-ob-sample>
+        <button type="button" class="onboard-choice" data-ob-choose="sample" ${canPick ? '' : 'disabled'}>
           <span class="onboard-choice-icon" aria-hidden="true">🧪</span>
           <strong>Try it with sample data</strong>
-          <span>See how the app works with example customers, items, a sample business with logo and signature, and invoices, quotations and reports. You can remove it any time.</span>
+          <span>Download a ready-made sample folder and connect it, to see invoices, quotations, reports, customers and items. Your own data is kept separate.</span>
         </button>
       </div>${err}`;
-    footer.innerHTML = '<button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal">Skip for now</button>';
+    footer.innerHTML = connected
+      ? '<button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal">Skip for now</button>'
+      : `<button type="button" class="btn btn-link" data-ob-existing ${canPick ? '' : 'disabled'}>I already have a data folder</button>`;
     return;
   }
   title.textContent = 'Set up your business';
@@ -6994,6 +6925,7 @@ function renderOnboarding(error = '') {
       ? `<div class="onboard-logo"><img src="${esc(S.seller.logo)}" alt="Your logo"><button type="button" class="btn btn-sm btn-outline-secondary" data-ob-logo-remove>Remove logo</button></div>`
       : '';
     body.innerHTML = `${onboardStepsBar()}
+      ${onboardFolderNote ? `<div class="onboard-folder-ready">✓ ${esc(onboardFolderNote)}</div>` : ''}
       ${onboardField('Business name', 'seller.name', { required: true, placeholder: 'For example: Sharma General Store', attrs: 'autocomplete="organization"' })}
       <div class="onboard-field"><label class="form-label">Address <span class="text-danger" aria-hidden="true">*</span></label>
         <textarea class="form-control" rows="2" placeholder="Shop number, street, city, PIN code" data-ob="seller.addr">${esc(S.seller.addr || '')}</textarea></div>
@@ -7079,48 +7011,76 @@ async function finishOnboarding() {
   showToast('Your business is set up. Create your first invoice below.', { type: 'success' });
 }
 
-// Sample mode: example data is loaded, and the business details on the invoice are filled in so an invoice can be made at once.
-async function startSampleMode() {
-  const loaded = await loadSampleData();
-  if (!loaded) return;
-  if (!String(S.seller.name || '').trim()) {
-    const seller = sellerProfiles.find(p => p.name === 'Sunrise Traders') || sellerProfiles[0];
-    const bank = bankProfiles[0], terms = termsProfiles[0];
-    if (seller) S.seller = { ...S.seller, ...structuredClone(seller) };
-    if (bank) S.bank = { ...S.bank, ...structuredClone(bank) };
-    if (terms) S.terms = { ...S.terms, list: [...(terms.terms || [])] };
-    if (!S.sign?.sig && window.SAMPLE_DATA?.signature) S.sign = { sig: window.SAMPLE_DATA.signature, companyName: seller?.name || '' };
-    save();
-  }
-  setSampleMode(true);
-  render();
-}
-
-
-// Asks before removing the sample data, and says exactly what will go.
-function askToRemoveSample({ title, confirmLabel, then }) {
-  let info;
-  try { info = sampleCounts(); } catch (error) { showToast(error.message, { type: 'error' }); return; }
-  if (!info.total) { showToast('No sample data was found in your folder.', { type: 'info' }); if (then) then(); return; }
-  confirmDestructiveAction({
-    title, confirmLabel,
-    message: info.byMatchOnly
-      ? `This will remove ${info.text} that match the example data. This browser did not record which ones the sample added, so a record of your own with exactly the same details would be removed too. Removed customers and items go to the Trash for 30 days.`
-      : `This will remove ${info.text} that Load sample data added. Your own records are kept, even ones with the same name. Removed customers and items go to the Trash for 30 days.`,
-    action: async () => { await removeSampleData(); if (then) then(); }
-  });
-}
-
 document.addEventListener('click', async e => {
   const modal = e.target.closest('#onboardModal');
   if (modal) {
     const go = e.target.closest('[data-ob-go]');
     if (go) { onboardStep = go.dataset.obGo; renderOnboarding(); return; }
-    if (e.target.closest('[data-ob-sample]')) {
-      const button = e.target.closest('[data-ob-sample]');
-      button.disabled = true;
-      onboardModal().hide();
-      await startSampleMode();
+    const choice = e.target.closest('[data-ob-choose]');
+    if (choice) {
+      if (choice.dataset.obChoose === 'sample') onboardStep = 'sample';
+      else if (!backupDatabaseConnected()) { onboardFolderStep = true; onboardStep = 'folder'; }   // no data folder yet: make one first
+      else onboardStep = 'business';
+      renderOnboarding();
+      return;
+    }
+    const connectSample = e.target.closest('[data-ob-connect-sample]');
+    if (connectSample) {
+      let dir;
+      try { dir = await window.showDirectoryPicker({ id: 'invoicegen-sample', mode: 'readwrite', startIn: 'downloads' }); }
+      catch (error) { if (error?.name !== 'AbortError') renderOnboarding(error.message || 'The folder could not be opened.'); return; }
+      try {
+        // Windows "Extract All" can put the files one folder deeper: look inside too.
+        let folder = await isSampleFolder(dir) ? dir : null;
+        if (!folder) {
+          for await (const entry of dir.values()) {
+            if (entry.kind === 'directory' && await isSampleFolder(entry)) { folder = entry; break; }
+          }
+        }
+        if (!folder) { renderOnboarding(`That is not the sample folder. Choose the unzipped “${SAMPLE_ZIP_FOLDER}” folder: it holds README.txt and the CSV files.`); return; }
+        connectSample.disabled = true;
+        connectSample.textContent = 'Connecting…';
+        const ok = await connectAllCsvs(folder, { requestPermission: true, showPicker: false, showErrors: false, rememberDirectory: true, fromWelcome: true });
+        if (ok !== true) { renderOnboarding(csvConnectionNotice || 'The sample folder could not be connected. Unzip it again and try once more.'); return; }
+        firstVisit = false;
+        onboardModal().hide();
+        showToast('Sample data connected. Everything here is made up, so try any feature. When you are done, press Disconnect sample data on the yellow bar.', { type: 'success', duration: 9000 });
+      } catch (error) {
+        console.error('Could not connect the sample folder.', error);
+        renderOnboarding(error.message || 'The sample folder could not be connected.');
+      }
+      return;
+    }
+    const pick = e.target.closest('[data-ob-pick-location]');
+    if (pick) {
+      const label = pick.innerHTML;
+      pick.disabled = true;
+      pick.textContent = 'Setting up…';
+      try {
+        const result = await createDataFolder(DATA_FOLDER_NAME);
+        const where = result.folder === undefined ? '' : `${result.place === result.folder.name ? result.folder.name : `${result.place}\\${result.folder.name}`}`;
+        onboardFolderNote = result.existing ? `Found your existing data in “${where}”.` : `Data folder ready: ${where}`;
+        if (result.existing && String(S.seller.name || '').trim()) {   // a returning user: nothing to set up
+          onboardModal().hide();
+          showToast(onboardFolderNote, { type: 'success' });
+          return;
+        }
+        onboardStep = 'business';
+        renderOnboarding();
+      } catch (error) {
+        if (error?.name === 'AbortError') { pick.disabled = false; pick.innerHTML = label; return; }   // the folder window was closed: stay here
+        console.error('Could not create the data folder.', error);
+        renderOnboarding(error.message || 'The data folder could not be created. Try another location.');
+      }
+      return;
+    }
+    if (e.target.closest('[data-ob-existing]')) {   // a returning user: choose the folder that already holds the data
+      const ok = await connectAllCsvs(null, { showErrors: false });
+      if (ok === true) {
+        firstVisit = false;
+        onboardModal().hide();
+      }
+      else if (ok === false) renderOnboarding(csvConnectionNotice || 'That folder could not be opened. Choose the folder that holds your InvoiceGen data.');
       return;
     }
     if (e.target.closest('[data-ob-next]') || e.target.closest('[data-ob-skip]')) {
@@ -7136,15 +7096,9 @@ document.addEventListener('click', async e => {
     return;
   }
   if (e.target.closest('#btnFirstRunSetup')) { openOnboarding(String(S.seller.name || '').trim() ? 'business' : 'start'); return; }
-  if (e.target.closest('#btnFirstRunSample')) { openOnboarding('start'); return; }
+  if (e.target.closest('#btnFirstRunSample')) { openOnboarding('sample'); return; }
   if (e.target.closest('#btnMissingBusiness')) { openOnboarding('business'); return; }
-  if (e.target.closest('#btnSampleSetup')) {
-    askToRemoveSample({ title: 'Start your own setup?', confirmLabel: 'Remove sample and start', then: () => openOnboarding('business') });
-    return;
-  }
-  if (e.target.closest('#btnSampleRemove')) {
-    askToRemoveSample({ title: 'Remove the sample data?', confirmLabel: 'Remove sample data' });
-  }
+  if (e.target.closest('#btnSampleDisconnect')) disconnectSampleData();
 });
 
 document.addEventListener('input', e => {
@@ -8338,10 +8292,6 @@ $('#edBody').addEventListener('click', e => {
   }
 });
 
-$('#edBody').addEventListener('click', e => {
-  if (e.target.closest('[data-sample-load]')) loadSampleData();
-  else if (e.target.closest('[data-sample-remove]')) askToRemoveSample({ title: 'Remove the sample data?', confirmLabel: 'Remove sample data' });
-});
 
 $('#invoiceCustomerForm').addEventListener('change', e => {
   if (e.target.name === 'shipSame') $('[data-customer-shipping]').hidden = e.target.checked;
@@ -9077,7 +9027,8 @@ function withTimeout(promise, ms, fallback) {
   return Promise.race([Promise.resolve(promise).catch(() => fallback), new Promise(resolve => setTimeout(() => resolve(fallback), ms))]);
 }
 
-let databaseGateReady = false;   // set once the automatic reconnect at start-up has finished, so the window does not flash for nothing
+let databaseGateReady = false;
+let firstVisit = false;   // no data folder remembered in this browser yet (set at start-up)   // set once the automatic reconnect at start-up has finished, so the window does not flash for nothing
 
 function updateDatabaseGate() {
   if (!databaseGateReady) return;
@@ -9092,7 +9043,14 @@ function updateDatabaseGate() {
   const canPick = typeof window.showDirectoryPicker === 'function';
   $('#btnGateConnect').hidden = !canPick;
   $('#databaseGateUnsupported').hidden = canPick;
-  if (!connected && !shown) modal.show();
+  const welcome = document.getElementById('onboardModal');
+  const welcomeOpen = welcome && (welcome.classList.contains('show') || welcome.classList.contains('showing'));
+  if (!connected && firstVisit) {          // first visit: the welcome window leads to the data folder
+    if (shown) modal.hide();
+    if (!welcomeOpen) openOnboarding('start');
+    return;
+  }
+  if (!connected && !shown && !welcomeOpen) modal.show();
   else if (connected && shown) modal.hide();
 }
 

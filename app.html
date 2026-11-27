@@ -243,12 +243,13 @@
       <div class="first-run-actions"><button type="button" class="btn btn-sm btn-primary" id="btnMissingBusiness">Add business details</button></div>
     </div>
 
-    <div class="alert alert-warning no-print sample-banner" id="sampleBanner" role="status" hidden>
-      <div><strong>You are using sample data.</strong> The customers, items, invoices and business details are made-up examples.</div>
-      <div class="first-run-actions">
-        <button type="button" class="btn btn-sm btn-primary" id="btnSampleSetup">Set up my business</button>
-        <button type="button" class="btn btn-sm btn-outline-danger" id="btnSampleRemove">Remove sample data</button>
+    <div class="no-print sample-banner" id="sampleBanner" role="status" hidden>
+      <span class="sample-banner-icon" aria-hidden="true">🧪</span>
+      <div class="sample-banner-text">
+        <strong>You are using sample data</strong>
+        <span>Everything here is made up, and changes stay in the sample folder. Disconnect it when you are ready to set up your own business.</span>
       </div>
+      <button type="button" class="sample-banner-btn" id="btnSampleDisconnect"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg><span>Disconnect sample data</span></button>
     </div>
 
     <div class="invoice-body-actions no-print" id="invoiceBodyActions">
@@ -538,7 +539,7 @@
     </div>
   </div>
 
-  <div class="modal fade no-print" id="onboardModal" tabindex="-1" aria-labelledby="onboardTitle" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal fade no-print" id="onboardModal" tabindex="-1" aria-labelledby="onboardTitle" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable onboard-dialog">
       <div class="modal-content">
         <div class="modal-header">
@@ -718,7 +719,6 @@
   <script src="lib/html2pdf.bundle.min.js"></script>
   <script src="lib/jszip.min.js"></script>
   <script src="i18n.js"></script>
-  <script src="sample-data.js"></script>
   <script src="folder-data.js"></script>
   <script src="app.js"></script>
 </body>
